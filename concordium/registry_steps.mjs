@@ -79,22 +79,25 @@ export function signReadyToUpdateContract(payload) {
   };
 }
 
+// The card must carry the token id, so the agent is registered first and the card is pinned afterwards.
 export function nextRegistryStep(state = {}) {
   if (state.revoked) return null;
   const steps = state.steps ?? {};
   const account = steps.account ?? {};
   if (!account.address || account.funded !== true) return 'account';
-  const card = steps.card ?? {};
-  if (!card.metadata_hash_hex) return 'card';
   const register = steps.register ?? {};
-  if (register.done !== true && !register.token_id) return 'register';
-  const setWallet = steps.set_wallet ?? {};
-  if (setWallet.done !== true) return 'set_wallet';
-  if (state.request_revoke === true) {
-    const revoke = steps.revoke ?? {};
-    if (revoke.done !== true) return 'revoke';
-  }
+  if (register.done !== true || !register.token_id) return 'register';
+  if (!steps.card?.metadata_hash_hex) return 'card';
+  if (steps.set_uri?.done !== true) return 'set_uri';
+  if (steps.set_wallet?.done !== true) return 'set_wallet';
+  if (state.request_revoke === true && steps.revoke?.done !== true) return 'revoke';
   return null;
+}
+
+export function requireDone(stepKey, read) {
+  if (read?.ok === true) return;
+  if (read?.reject) throw new Error(`${stepKey} rejected: ${read.reject}`);
+  throw new Error(`${stepKey} not finalized yet, rerun to resume`);
 }
 
 export function stepTxAction(stepState) {

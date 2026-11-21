@@ -6,6 +6,7 @@ import {
   FIXTURE_BUILD_REVOKE,
   assertSignReadyPayload,
   nextRegistryStep,
+  requireDone,
   parseMcpHttpBody,
   parseMcpToolResult,
   signReadyToUpdateContract,
@@ -58,55 +59,28 @@ test('signReadyToUpdateContract builds update contract parameters from MCP paylo
   assert.equal(Buffer.from(Parameter.toBuffer(built.message)).toString('hex'), FIXTURE_BUILD_REGISTER.parameter_hex);
 });
 
-test('nextRegistryStep walks every saved state in order', () => {
+test('nextRegistryStep registers first, because the card needs the token id', () => {
+  const funded = { address: 'a', funded: true };
+  const registered = { done: true, token_id: '99' };
+  const card = { metadata_hash_hex: 'ab'.repeat(32) };
   assert.equal(nextRegistryStep({}), 'account');
   assert.equal(nextRegistryStep({ steps: { account: { address: 'a' } } }), 'account');
-  assert.equal(nextRegistryStep({ steps: { account: { address: 'a', funded: true } } }), 'card');
-  assert.equal(nextRegistryStep({
-    steps: { account: { address: 'a', funded: true }, card: { metadata_hash_hex: 'ab'.repeat(32) } },
-  }), 'register');
-  assert.equal(nextRegistryStep({
-    steps: {
-      account: { address: 'a', funded: true },
-      card: { metadata_hash_hex: 'ab'.repeat(32) },
-      register: { tx_hash: 'deadbeef', reserved: true },
-    },
-  }), 'register');
-  assert.equal(nextRegistryStep({
-    steps: {
-      account: { address: 'a', funded: true },
-      card: { metadata_hash_hex: 'ab'.repeat(32) },
-      register: { done: true, token_id: 99 },
-    },
-  }), 'set_wallet');
-  assert.equal(nextRegistryStep({
-    steps: {
-      account: { address: 'a', funded: true },
-      card: { metadata_hash_hex: 'ab'.repeat(32) },
-      register: { done: true, token_id: 99 },
-      set_wallet: { done: true },
-    },
-  }), null);
-  assert.equal(nextRegistryStep({
-    request_revoke: true,
-    steps: {
-      account: { address: 'a', funded: true },
-      card: { metadata_hash_hex: 'ab'.repeat(32) },
-      register: { done: true, token_id: 99 },
-      set_wallet: { done: true },
-    },
-  }), 'revoke');
-  assert.equal(nextRegistryStep({
-    request_revoke: true,
-    revoked: true,
-    steps: {
-      account: { address: 'a', funded: true },
-      card: { metadata_hash_hex: 'ab'.repeat(32) },
-      register: { done: true, token_id: 99 },
-      set_wallet: { done: true },
-      revoke: { done: true },
-    },
-  }), null);
+  assert.equal(nextRegistryStep({ steps: { account: funded } }), 'register');
+  assert.equal(nextRegistryStep({ steps: { account: funded, register: { tx_hash: 'x', reserved: true } } }), 'register');
+  assert.equal(nextRegistryStep({ steps: { account: funded, register: registered } }), 'card');
+  assert.equal(nextRegistryStep({ steps: { account: funded, register: registered, card } }), 'set_uri');
+  assert.equal(nextRegistryStep({ steps: { account: funded, register: registered, card, set_uri: { done: true } } }), 'set_wallet');
+  const all = { account: funded, register: registered, card, set_uri: { done: true }, set_wallet: { done: true } };
+  assert.equal(nextRegistryStep({ steps: all }), null);
+  assert.equal(nextRegistryStep({ request_revoke: true, steps: all }), 'revoke');
+  assert.equal(nextRegistryStep({ request_revoke: true, steps: { ...all, revoke: { done: true } } }), null);
+  assert.equal(nextRegistryStep({ revoked: true, steps: all }), null);
+});
+
+test('a rejected or unfinished contract update is never treated as done', () => {
+  assert.throws(() => requireDone('revoke', { finalized: true, ok: false, reject: 'nope' }), /nope/);
+  assert.throws(() => requireDone('revoke', { finalized: false, ok: false, reject: null }), /not finalized/);
+  assert.doesNotThrow(() => requireDone('revoke', { finalized: true, ok: true, reject: null }));
 });
 
 test('a saved hash with no result never resends', () => {

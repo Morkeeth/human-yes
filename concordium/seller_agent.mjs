@@ -1,5 +1,6 @@
 // Register and manage Human Yes's own seller agent on Concordium testnet.
-// Usage: node seller_agent.mjs <account|card|register|set-wallet|revoke|status> ...
+// Usage: node seller_agent.mjs <account|register|card|set-uri|set-wallet|revoke|status> ...
+import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
@@ -20,6 +21,7 @@ import {
   parseMcpToolResult,
   nextRegistryStep,
   readContractUpdate,
+  requireDone,
   signReadyToUpdateContract,
   stepTxAction,
 } from './registry_steps.mjs';
@@ -40,7 +42,7 @@ const AGENT_DESCRIPTION = 'Human Yes demo seller agent on Concordium testnet';
 
 const [cmd, ...rest] = process.argv.slice(2);
 if (!cmd) {
-  console.error('usage: node seller_agent.mjs <account|card|register|set-wallet|revoke|status> ...');
+  console.error('usage: node seller_agent.mjs <account|register|card|set-uri|set-wallet|revoke|status> ...');
   process.exit(1);
 }
 
@@ -91,6 +93,13 @@ async function accountExists(address) {
   }
 }
 
+async function awaitDeployment(hash) {
+  const item = await waitForFinal(() => client.getBlockItemStatus(TransactionHash.fromHexString(hash)));
+  if (item?.status !== 'finalized' || item.outcome?.summary?.type !== 'accountCreation') {
+    throw new Error('account deployment not finalized yet, rerun to resume');
+  }
+}
+
 async function deploySeller(state) {
   const step = state.steps.account ?? {};
   const accounts = JSON.parse(readFileSync(ACCOUNTS_FILE, 'utf8'));
@@ -102,7 +111,7 @@ async function deploySeller(state) {
     return savedAcct.address;
   }
   if (step.deploy_tx) {
-    await client.waitForTransactionFinalization(TransactionHash.fromHexString(step.deploy_tx), 120000);
+    await awaitDeployment(step.deploy_tx);
     state.steps.account = { ...step, address: step.address ?? savedAcct?.address };
     saveAgents(state);
     return state.steps.account.address;
@@ -142,7 +151,7 @@ async function deploySeller(state) {
   saveAgents(state);
   accounts.accounts[String(SELLER_CREDENTIAL)] = { address, tx: hash.toString() };
   writeFileSync(ACCOUNTS_FILE, `${JSON.stringify(accounts, null, 2)}\n`, { mode: 0o600 });
-  await client.waitForTransactionFinalization(hash, 120000);
+  await awaitDeployment(hash.toString());
   saveAgents(state);
   return address;
 }
@@ -207,6 +216,7 @@ async function sendContractTx(state, stepKey, senderCred, buildArgs) {
       state.steps[stepKey] = { ...step, done: read.ok, reject: read.reject, finalized: true };
       saveAgents(state);
     }
+    requireDone(stepKey, read);
     return { tx_hash: action.tx_hash, ...read, waited: true };
   }
   if (action.action === 'already_done') return { tx_hash: step.tx_hash, done: true, waited: false };
@@ -228,7 +238,7 @@ async function sendContractTx(state, stepKey, senderCred, buildArgs) {
   const read = readContractUpdate(item);
   state.steps[stepKey] = { ...state.steps[stepKey], done: read.ok, reject: read.reject, finalized: read.finalized };
   saveAgents(state);
-  if (!read.ok) throw new Error(read.reject ?? `${stepKey} failed`);
+  requireDone(stepKey, read);
   return { tx_hash: hash, ...read, waited: false };
 }
 
@@ -253,12 +263,15 @@ async function cmdCard(agentUri) {
   }
   const state = readAgents();
   const owner = await sellerAddress(state);
+  const tokenId = state.steps.register?.token_id;
+  if (!tokenId) throw new Error('run register first, the card carries the token id');
   const built = await mcpCall('build_agent_card', {
     name: AGENT_NAME,
     description: AGENT_DESCRIPTION,
     agent_uri: agentUri,
     owner_account: owner,
     agent_wallet: owner,
+    token_id: String(tokenId),
   });
   mkdirSync(dirname(CARD_FILE), { recursive: true });
   writeFileSync(CARD_FILE, `${built.agent_card_json}\n`, { mode: 0o644 });
@@ -272,33 +285,50 @@ async function cmdCard(agentUri) {
   console.log(JSON.stringify({ cmd: 'card', agent_uri: agentUri, metadata_hash_hex: built.metadata_hash_hex, card_path: CARD_FILE }, null, 2));
 }
 
-async function resolveTokenId(state, owner, agentUri) {
+async function resolveTokenId(state, owner) {
   if (state.steps.register?.token_id) return state.steps.register.token_id;
-  const listed = await mcpCall('agents_by_owner', { owner_account: owner, limit: 20 });
-  const hit = (listed.agents ?? []).find((a) => a.agent_uri === agentUri && a.status === 'Active');
-  if (!hit) throw new Error('registered agent not found for this card');
-  state.steps.register = { ...state.steps.register, token_id: hit.token_id, done: true };
-  saveAgents(state);
-  return hit.token_id;
+  for (let i = 0; i < 30; i += 1) {
+    const listed = await mcpCall('agents_by_owner', { owner_account: owner, limit: 20 }).catch(() => ({ agents: [] }));
+    const active = (listed.agents ?? []).filter((a) => a.status === 'Active');
+    if (active.length > 1) throw new Error('more than one active agent for this owner');
+    if (active.length === 1) {
+      state.steps.register = { ...state.steps.register, token_id: String(active[0].token_id), done: true };
+      saveAgents(state);
+      return state.steps.register.token_id;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 2000));
+  }
+  throw new Error('registered agent not indexed yet, rerun to resume');
 }
 
 async function cmdRegister() {
   const state = readAgents();
-  const card = state.steps.card;
-  if (!card?.metadata_hash_hex) throw new Error('run card first');
   const owner = await sellerAddress(state);
-  const out = await sendContractTx(state, 'register', SELLER_CREDENTIAL, {
-    tool: 'build_register',
-    args: { agent_uri: card.agent_uri, metadata_hash_hex: card.metadata_hash_hex },
-  });
-  const tokenId = await resolveTokenId(readAgents(), owner, card.agent_uri);
+  const out = await sendContractTx(state, 'register', SELLER_CREDENTIAL, { tool: 'build_register', args: {} });
+  const tokenId = await resolveTokenId(readAgents(), owner);
   console.log(JSON.stringify({ cmd: 'register', tx_hash: out.tx_hash, token_id: tokenId, seller: `ccd:testnet:${tokenId}` }, null, 2));
+}
+
+async function cmdSetUri() {
+  const state = readAgents();
+  const card = state.steps.card;
+  const tokenId = state.steps.register?.token_id;
+  if (!card?.metadata_hash_hex || !tokenId) throw new Error('run register and card first');
+  const served = await fetch(card.agent_uri);
+  const bytes = Buffer.from(await served.arrayBuffer());
+  const hash = createHash('sha256').update(bytes).digest('hex');
+  if (!served.ok || hash !== card.metadata_hash_hex.toLowerCase()) throw new Error('the hosted card does not match its hash, push it first');
+  const out = await sendContractTx(state, 'set_uri', SELLER_CREDENTIAL, {
+    tool: 'build_set_agent_uri',
+    args: { token_id: tokenId, agent_uri: card.agent_uri, metadata_hash_hex: card.metadata_hash_hex },
+  });
+  console.log(JSON.stringify({ cmd: 'set-uri', tx_hash: out.tx_hash, token_id: tokenId, agent_uri: card.agent_uri }, null, 2));
 }
 
 async function cmdSetWallet() {
   const state = readAgents();
   const owner = await sellerAddress(state);
-  const tokenId = await resolveTokenId(state, owner, state.steps.card?.agent_uri);
+  const tokenId = await resolveTokenId(state, owner);
   const deadline = Date.now() + 3600_000;
   const canonical = await mcpCall('set_agent_wallet_canonical_bytes', {
     token_id: tokenId,
@@ -324,7 +354,7 @@ async function cmdRevoke() {
   state.request_revoke = true;
   saveAgents(state);
   const owner = await sellerAddress(state);
-  const tokenId = state.steps.register?.token_id ?? await resolveTokenId(state, owner, state.steps.card?.agent_uri);
+  const tokenId = state.steps.register?.token_id ?? await resolveTokenId(state, owner);
   const reason = rest.join(' ') || 'Human Yes demo revoke';
   const out = await sendContractTx(state, 'revoke', SELLER_CREDENTIAL, {
     tool: 'build_revoke',
@@ -369,6 +399,9 @@ switch (cmd) {
     break;
   case 'register':
     await cmdRegister();
+    break;
+  case 'set-uri':
+    await cmdSetUri();
     break;
   case 'set-wallet':
     await cmdSetWallet();
