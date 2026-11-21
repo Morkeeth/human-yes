@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Human Yes phone proof</title>
+  <style>
+    :root {
+      --ink: #14201a;
+      --paper: #f3efe6;
+      --accent: #0f6b4c;
+      --warn: #8a2f1a;
+      --line: #cfc6b6;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Iowan Old Style", "Palatino Linotype", Palatino, serif;
+      color: var(--ink);
+      background:
+        radial-gradient(1200px 600px at 10% -10%, #dfece4 0%, transparent 55%),
+        radial-gradient(900px 500px at 100% 0%, #efe2d2 0%, transparent 50%),
+        var(--paper);
+      min-height: 100vh;
+    }
+    main {
+      max-width: 34rem;
+      margin: 0 auto;
+      padding: 2.5rem 1.25rem 4rem;
+    }
+    h1 {
+      font-size: clamp(2rem, 6vw, 2.6rem);
+      letter-spacing: -0.02em;
+      margin: 0 0 0.4rem;
+      line-height: 1.05;
+    }
+    .lede {
+      margin: 0 0 1.75rem;
+      font-size: 1.05rem;
+      line-height: 1.45;
+      max-width: 28rem;
+    }
+    .payment {
+      border-top: 1px solid var(--line);
+      border-bottom: 1px solid var(--line);
+      padding: 1rem 0 1.1rem;
+      margin-bottom: 1.5rem;
+    }
+    .payment dl {
+      display: grid;
+      grid-template-columns: 7.5rem 1fr;
+      gap: 0.35rem 0.75rem;
+      margin: 0;
+      font-size: 0.98rem;
+    }
+    .payment dt { opacity: 0.65; }
+    .payment dd { margin: 0; word-break: break-word; }
+    #qr {
+      display: block;
+      width: 280px;
+      height: 280px;
+      margin: 0 auto 1rem;
+      background: #fff;
+      border: 1px solid var(--line);
+    }
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.6rem;
+      margin: 1rem 0 1.25rem;
+    }
+    button {
+      appearance: none;
+      border: 1px solid var(--ink);
+      background: var(--ink);
+      color: var(--paper);
+      font: inherit;
+      padding: 0.55rem 0.95rem;
+      cursor: pointer;
+    }
+    button.secondary {
+      background: transparent;
+      color: var(--ink);
+    }
+    button:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+    }
+    #status {
+      min-height: 3.5rem;
+      white-space: pre-wrap;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 0.82rem;
+      line-height: 1.4;
+      color: var(--accent);
+    }
+    #status.fail { color: var(--warn); }
+    .fine {
+      margin-top: 1.5rem;
+      font-size: 0.85rem;
+      opacity: 0.7;
+      line-height: 1.4;
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Human Yes</h1>
+    <p class="lede">A Concordium wallet proof must approve this exact payment before an agent may pay.</p>
+    <section class="payment" aria-label="Payment">
+      <dl>
+        <dt>Seller</dt><dd id="seller">…</dd>
+        <dt>Amount</dt><dd id="amount">…</dd>
+        <dt>Reason</dt><dd id="reason">…</dd>
+        <dt>Payee</dt><dd id="payee">…</dd>
+        <dt>Expires</dt><dd id="expires">…</dd>
+      </dl>
+    </section>
+    <img id="qr" alt="WalletConnect QR code" width="280" height="280" />
+    <div class="actions">
+      <button id="connect" type="button">Show QR / connect wallet</button>
+      <button id="prove" type="button" class="secondary" disabled>Request proof</button>
+    </div>
+    <div id="status">Loading session…</div>
+    <p class="fine">Uses WalletConnect method sign_and_send_transaction for the RegisterData anchor, then request_verifiable_presentation_v1. Account claims need a wallet app (the ID App does not have access to accounts). Bound to 127.0.0.1 only.</p>
+  </main>
+  <script type="module" src="/app.js"></script>
+</body>
+</html>

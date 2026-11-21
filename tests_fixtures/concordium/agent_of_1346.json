@@ -1,0 +1,11 @@
+{
+  "network": "testnet",
+  "token_address": "JyP9V8fDRvX5b9CBvPwPg",
+  "token_id": "1346",
+  "token_id_u64": 1346,
+  "owner_account": "4nbXzJQtZhjs2xmQPY5fpaS12No88VXPa9CrcbipYeQYYWoLpn",
+  "agent_uri": "https://xsignals-rose.vercel.app/a/eth-trend-pullback.json",
+  "metadata_hash_hex": "ee493037f7269258d1b5af7a29d7bfc27c1507ff17b6060cdbebf442f2f86f10",
+  "status": "Active",
+  "registered_at": "2026-11-20T21:21:18.623+00:00"
+}

@@ -1,0 +1,83 @@
+{
+  "token_id": 12,
+  "token_address": "JyP9U7XyDbBWoxPrUP8vq",
+  "agent_uri": "https://physid.ai/.well-known/agents/testnet/encode.json",
+  "http_status": 200,
+  "card_sha256": "fbfc89cfee12a330b257b2f1fe59c9e62ddade9f38b8aab3b2784da327a5e90d",
+  "on_chain": {
+    "owner_account": "4AuT5RRmBwcdkLMA6iVjxTDb1FQmxwAh3wHBS22mggWL8xH6s3",
+    "status": "Active",
+    "agent_uri": "https://physid.ai/.well-known/agents/testnet/encode.json",
+    "metadata_hash_hex": "fbfc89cfee12a330b257b2f1fe59c9e62ddade9f38b8aab3b2784da327a5e90d"
+  },
+  "checks": {
+    "on_chain_agent_found": true,
+    "status_active": true,
+    "has_agent_uri": true,
+    "card_fetched": true,
+    "hash_matches_on_chain": true,
+    "badge_present": true,
+    "badge_embedding": "legacy",
+    "badge_well_formed": false,
+    "token_address_matches": false,
+    "owner_matches": true,
+    "chain_matches": true,
+    "contracts_match": false,
+    "verify_present": false,
+    "verification_present": false
+  },
+  "badge_valid": false,
+  "issues": [
+    {
+      "severity": "warning",
+      "field": "embedding",
+      "message": "badge uses the legacy top-level `concordium` block; re-anchor with the A2A extension form when convenient",
+      "expected": "https://docs.concordium.com/a2a-extensions/concordium-badge/v1",
+      "actual": "concordium (top-level)"
+    },
+    {
+      "severity": "error",
+      "field": "tokenAddress",
+      "message": "badge is missing required field `tokenAddress`",
+      "expected": "present"
+    },
+    {
+      "severity": "error",
+      "field": "contracts.cis8004",
+      "message": "badge is missing required field `contracts.cis8004`",
+      "expected": "present"
+    },
+    {
+      "severity": "error",
+      "field": "tokenAddress",
+      "message": "badge short form does not match the on-chain token address",
+      "expected": "JyP9U7XyDbBWoxPrUP8vq"
+    },
+    {
+      "severity": "error",
+      "field": "tokenAddress",
+      "message": "CAIP-19 token address does not match",
+      "expected": "ccd:4221332d34e1694168c2a0c0b3fd0f27/cis-2:JyP9U7XyDbBWoxPrUP8vq"
+    },
+    {
+      "severity": "warning",
+      "field": "contracts.cis8",
+      "message": "badge omits contracts.cis8 (optional supplementary layer)",
+      "expected": "12801,0"
+    },
+    {
+      "severity": "warning",
+      "field": "verify",
+      "message": "badge omits the standard `verify` instruction field",
+      "expected": "Resolve tokenAddress via CIS-8004 agent_of; confirm owner + status is Active + card SHA-256 equals metadata_hash."
+    }
+  ],
+  "network": "testnet",
+  "expected": {
+    "chain": "ccd:4221332d34e1694168c2a0c0b3fd0f27",
+    "contracts": {
+      "cis8004": "12802,0",
+      "cis8": "12801,0"
+    }
+  }
+}

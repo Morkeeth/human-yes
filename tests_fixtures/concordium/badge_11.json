@@ -1,0 +1,43 @@
+{
+  "token_id": 11,
+  "token_address": "JyP9U6SVHZgayqA5XfHfA",
+  "agent_uri": "<script src=\"https://gist.github.com/TheoCCD/80fc9457230257cee7d4da026ce65f60.js\"></script>",
+  "http_status": null,
+  "card_sha256": null,
+  "on_chain": {
+    "owner_account": "3oPfuWN3BfDHa2GFstC9SkrSFkTWFKdrg2c9cLdpGjphewLJeL",
+    "status": "Revoked",
+    "agent_uri": "<script src=\"https://gist.github.com/TheoCCD/80fc9457230257cee7d4da026ce65f60.js\"></script>",
+    "metadata_hash_hex": "f5d1ca546953066e0719bee6f4e61f0e545ded865d8bba85b1f5f4ed78d18ddf"
+  },
+  "checks": {
+    "on_chain_agent_found": true,
+    "status_active": false,
+    "has_agent_uri": true,
+    "card_fetched": false
+  },
+  "badge_valid": false,
+  "issues": [
+    {
+      "severity": "error",
+      "field": "status",
+      "message": "agent is not Active on chain",
+      "expected": "Active",
+      "actual": "Revoked"
+    },
+    {
+      "severity": "error",
+      "field": "card_fetch",
+      "message": "could not fetch card: GET <script src=\"https://gist.github.com/TheoCCD/80fc9457230257cee7d4da026ce65f60.js\"></script>: builder error",
+      "expected": "HTTP 200"
+    }
+  ],
+  "network": "testnet",
+  "expected": {
+    "chain": "ccd:4221332d34e1694168c2a0c0b3fd0f27",
+    "contracts": {
+      "cis8004": "12802,0",
+      "cis8": "12801,0"
+    }
+  }
+}

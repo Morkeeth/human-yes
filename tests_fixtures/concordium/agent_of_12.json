@@ -1,0 +1,12 @@
+{
+  "network": "testnet",
+  "token_address": "JyP9U7XyDbBWoxPrUP8vq",
+  "token_id": "12",
+  "token_id_u64": 12,
+  "owner_account": "4AuT5RRmBwcdkLMA6iVjxTDb1FQmxwAh3wHBS22mggWL8xH6s3",
+  "agent_uri": "https://physid.ai/.well-known/agents/testnet/encode.json",
+  "metadata_hash_hex": "fbfc89cfee12a330b257b2f1fe59c9e62ddade9f38b8aab3b2784da327a5e90d",
+  "agent_wallet": "4AuT5RRmBwcdkLMA6iVjxTDb1FQmxwAh3wHBS22mggWL8xH6s3",
+  "status": "Active",
+  "registered_at": "2026-05-31T07:31:51.209+00:00"
+}

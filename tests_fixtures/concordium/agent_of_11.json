@@ -1,0 +1,14 @@
+{
+  "network": "testnet",
+  "token_address": "JyP9U6SVHZgayqA5XfHfA",
+  "token_id": "11",
+  "token_id_u64": 11,
+  "owner_account": "3oPfuWN3BfDHa2GFstC9SkrSFkTWFKdrg2c9cLdpGjphewLJeL",
+  "agent_uri": "<script src=\"https://gist.github.com/TheoCCD/80fc9457230257cee7d4da026ce65f60.js\"></script>",
+  "metadata_hash_hex": "f5d1ca546953066e0719bee6f4e61f0e545ded865d8bba85b1f5f4ed78d18ddf",
+  "agent_wallet": "3oPfuWN3BfDHa2GFstC9SkrSFkTWFKdrg2c9cLdpGjphewLJeL",
+  "status": "Revoked",
+  "registered_at": "2026-05-29T09:19:46.702+00:00",
+  "revoked_at": "2026-05-29T14:25:18.790+00:00",
+  "revocation_reason": "was just a test, purpously made to be wrong"
+}

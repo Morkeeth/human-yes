@@ -1,0 +1,24 @@
+{
+  "network": "testnet",
+  "token_address": "JyP9UGK4ajaPRQGJQiDpi",
+  "token_id": "1300",
+  "token_id_u64": 1300,
+  "owner_account": "45GYzCjNUQurQEN8TRmWDjdYhfKJgrusZ6jUGs373NamwjmRh6",
+  "agent_uri": "https://registry-testnet.modernmiracle.org/agents/1300/.well-known/agent-card.json",
+  "metadata_hash_hex": "9ce99963ca2c26cdca9364bdb162327184c36128a60ec038a43757bc1761a79e",
+  "external_reference": {
+    "contract_address": {
+      "index": 12801,
+      "subindex": 0
+    },
+    "kind": "Cis8",
+    "key": {
+      "namespace": "eip155:1",
+      "key_type": "secp256k1-uncompressed",
+      "public_key_hex": "044f37249ed76553de97f76cdac54d50fe90b3bc1c84790df9a2f34de00c7f7b7cd0397f39663985a4e69b39294d5ef5d481da4fc62f7c9b4150b0f48bb87631bb"
+    }
+  },
+  "agent_wallet": "45GYzCjNUQurQEN8TRmWDjdYhfKJgrusZ6jUGs373NamwjmRh6",
+  "status": "Active",
+  "registered_at": "2026-11-19T16:02:52.939+00:00"
+}

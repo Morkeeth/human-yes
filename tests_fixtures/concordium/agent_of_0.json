@@ -1,0 +1,12 @@
+{
+  "network": "testnet",
+  "token_address": "JyP9TtQC3HCNrTYR3sc2T",
+  "token_id": "0",
+  "token_id_u64": 0,
+  "owner_account": "3dt3UMPzRASZndjmKpSWgCP2HhmoxZrgs8FDPtZjNHZzj13hhB",
+  "agent_uri": "https://tippingservice.co.uk/agents/quiet_ledger_63/.well-known/agent-card.json",
+  "metadata_hash_hex": "e1299b4e1de23375342f4d2de6d19858d5d02217b4a87a526aa06deb539fc1fc",
+  "agent_wallet": "3dt3UMPzRASZndjmKpSWgCP2HhmoxZrgs8FDPtZjNHZzj13hhB",
+  "status": "Active",
+  "registered_at": "2026-05-27T01:30:39.689+00:00"
+}
