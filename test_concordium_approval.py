@@ -20,6 +20,8 @@ from concordium_trust import MEMO_MAX, _cbor_text
 BUYER = '4nbXzJQtZhjs2xmQPY5fpaS12No88VXPa9CrcbipYeQYYWoLpn'
 PAYEE = '45GYzCjNUQurQEN8TRmWDjdYhfKJgrusZ6jUGs373NamwjmRh6'
 SELLER = 'ccd:testnet:1300'
+TEST_APPROVER = '4WRJDFZaB9HLLPpVaFZYYS51rUaxzp8H9zuu8Yzv3zoivDDpzq'
+TEST_APPROVER_LABEL = 'TEST APPROVER: script-held key, not a real person'
 METHODS = ('challenge', 'record', 'server_nonce')
 
 
@@ -96,6 +98,92 @@ def verify(method, payment, presentation, store, now=None, memo=None, verifier=o
         now or datetime(2098, 12, 1, tzinfo=timezone.utc),
         memo=memo,
     )
+
+
+def ok_sig_verifier(_approver, _hash_hex, _signature):
+    return {'ok': True}
+
+
+def fail_sig_verifier(_approver, _hash_hex, _signature):
+    return {'ok': False}
+
+
+def sample_test_approval(payment, **overrides):
+    ph = expected_payment_hash(payment)
+    base = {
+        'approver': TEST_APPROVER,
+        'signature': {'0': {'0': 'ab' * 32}},
+        'payment_hash': ph,
+        'label': TEST_APPROVER_LABEL,
+    }
+    base.update(overrides)
+    return base
+
+
+def verify_test(payment, approval, store, now=None, verifier=ok_sig_verifier, allowed=TEST_APPROVER):
+    return ca.verify_test_approval(
+        payment, approval, store, verifier,
+        now or datetime(2098, 12, 1, tzinfo=timezone.utc),
+        allowed,
+    )
+
+
+class TestApproverVerifyTests(unittest.TestCase):
+    def setUp(self):
+        self.store = ca.ApprovalStore(':memory:')
+        self.payment = sample_payment()
+        self.now = datetime(2098, 12, 1, tzinfo=timezone.utc)
+
+    def tearDown(self):
+        self.store.close()
+
+    def test_valid_approval_consumes_once(self):
+        approval = sample_test_approval(self.payment)
+        first = verify_test(self.payment, approval, self.store, now=self.now)
+        self.assertTrue(first['ok'], first)
+        self.assertEqual(first['label'], TEST_APPROVER_LABEL)
+        replay = verify_test(self.payment, approval, self.store, now=self.now)
+        self.assertFalse(replay['ok'])
+        self.assertEqual(replay['reason'], 'replay')
+
+    def test_missing_signature_refused(self):
+        for approval in (None, {}, {'approver': TEST_APPROVER, 'payment_hash': expected_payment_hash(self.payment)}):
+            with self.subTest(approval=approval):
+                out = verify_test(self.payment, approval or {}, self.store, now=self.now)
+                self.assertFalse(out['ok'])
+                self.assertEqual(out['reason'], 'missing_signature')
+
+    def test_signature_failed_refused(self):
+        approval = sample_test_approval(self.payment)
+        out = verify_test(self.payment, approval, self.store, now=self.now, verifier=fail_sig_verifier)
+        self.assertFalse(out['ok'])
+        self.assertEqual(out['reason'], 'signature_failed')
+
+    def test_wrong_signed_hash_refused(self):
+        other = sample_payment(amount_micro_ccd='999999')
+        approval = sample_test_approval(other)
+        out = verify_test(self.payment, approval, self.store, now=self.now)
+        self.assertFalse(out['ok'])
+        self.assertEqual(out['reason'], 'wrong_payment')
+
+    def test_wrong_approver_refused(self):
+        approval = sample_test_approval(self.payment, approver='3RxGu9x7fbqcpJ6EKXW3aoJp4sMfXFWC1rNWvJV6Jic4VN9Ki3')
+        out = verify_test(self.payment, approval, self.store, now=self.now)
+        self.assertFalse(out['ok'])
+        self.assertEqual(out['reason'], 'wrong_approver')
+
+    def test_buyer_cannot_be_approver(self):
+        approval = sample_test_approval(self.payment, approver=BUYER)
+        out = verify_test(self.payment, approval, self.store, now=self.now, allowed=BUYER)
+        self.assertFalse(out['ok'])
+        self.assertEqual(out['reason'], 'buyer_is_approver')
+
+    def test_expired_refused(self):
+        payment = sample_payment(expires_at='2020-01-01T00:00:00+00:00')
+        approval = sample_test_approval(payment)
+        out = verify_test(payment, approval, self.store, now=datetime(2021, 1, 1, tzinfo=timezone.utc))
+        self.assertFalse(out['ok'])
+        self.assertEqual(out['reason'], 'expired')
 
 
 class PaymentHashTests(unittest.TestCase):

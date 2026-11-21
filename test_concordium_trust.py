@@ -170,6 +170,8 @@ if __name__ == '__main__':
 
 BUYER = '4nbXzJQtZhjs2xmQPY5fpaS12No88VXPa9CrcbipYeQYYWoLpn'   # stand-in buyer: a funded public testnet account
 PAYEE_1300 = '45GYzCjNUQurQEN8TRmWDjdYhfKJgrusZ6jUGs373NamwjmRh6'  # agent 1300's wallet, from the recorded registry read
+TEST_APPROVER = '4WRJDFZaB9HLLPpVaFZYYS51rUaxzp8H9zuu8Yzv3zoivDDpzq'
+TEST_APPROVER_LABEL = 'TEST APPROVER: script-held key, not a real person'
 
 
 class FixtureRunner:
@@ -323,6 +325,108 @@ def _approval_bundle(method, payment, store, proof_layer='real'):
         'now': datetime(2098, 12, 1, tzinfo=timezone.utc),
         'memo': memo,
     }
+
+
+def _test_approver_bundle(payment, store, clock=None):
+    ph = hashlib.sha256(json.dumps({
+        k: payment[k] for k in ca.HASH_FIELDS
+    }, sort_keys=True, separators=(',', ':')).encode()).hexdigest()
+    presentation = {
+        'approver': TEST_APPROVER,
+        'signature': {'0': {'0': 'cd' * 32}},
+        'payment_hash': ph,
+        'label': TEST_APPROVER_LABEL,
+    }
+    bundle = {
+        'method': 'test_approver',
+        'presentation': presentation,
+        'store': store,
+        'payment': {
+            'approval_nonce': payment['approval_nonce'],
+            'expires_at': payment['expires_at'],
+        },
+        'signature_verifier': lambda a, h, s: {'ok': True},
+        'allowed_approver': TEST_APPROVER,
+        'now': datetime(2019, 1, 1, tzinfo=timezone.utc),
+    }
+    if clock is not None:
+        bundle['clock'] = clock
+    return bundle
+
+
+class TestApproverPayTests(unittest.TestCase):
+    def _over_cap_payment(self, **overrides):
+        base = ca.build_phone_payment(
+            buyer=BUYER, payee=PAYEE_1300, seller='ccd:testnet:1300',
+            amount_micro_ccd=1_500_000, reason='test',
+            request_id='req-1', approval_nonce='ab' * 32,
+            expires_at='2099-01-01T00:00:00+00:00',
+        )
+        base.update(overrides)
+        return base
+
+    def test_over_cap_test_approver_pays_once_with_label(self):
+        payment = self._over_cap_payment()
+        store = ca.ApprovalStore(':memory:')
+        approval = _test_approver_bundle(payment, store, clock=datetime(2098, 12, 1, tzinfo=timezone.utc))
+        rec, runner = signed_pay(amount=1_500_000, cap=1_000_000, approval=approval)
+        self.assertTrue(rec['paid'], rec.get('reasons'))
+        self.assertEqual(rec['approval_layer'], 'test_approver')
+        self.assertEqual(rec['approval_label'], TEST_APPROVER_LABEL)
+        self.assertNotIn('proof_layer', rec)
+        self.assertEqual(len(runner.calls), 1)
+        replay, again = signed_pay(amount=1_500_000, cap=1_000_000, approval=approval)
+        self.assertFalse(replay['paid'])
+        self.assertEqual(again.calls, [])
+        store.close()
+
+    def test_over_cap_test_approver_replay_does_not_call_runner(self):
+        payment = self._over_cap_payment()
+        store = ca.ApprovalStore(':memory:')
+        approval = _test_approver_bundle(payment, store, clock=datetime(2098, 12, 1, tzinfo=timezone.utc))
+        signed_pay(amount=1_500_000, cap=1_000_000, approval=approval)
+        runner = SignedFixtureRunner()
+        replay, runner = signed_pay(amount=1_500_000, cap=1_000_000, signed_runner=runner, approval=approval)
+        self.assertFalse(replay['paid'])
+        self.assertEqual(runner.calls, [])
+        store.close()
+
+    def test_over_cap_test_approver_wrong_amount_skips_runner(self):
+        payment = self._over_cap_payment(amount_micro_ccd=250000)
+        store = ca.ApprovalStore(':memory:')
+        approval = _test_approver_bundle(payment, store, clock=datetime(2098, 12, 1, tzinfo=timezone.utc))
+        rec, runner = signed_pay(amount=1_500_000, cap=1_000_000, approval=approval)
+        self.assertFalse(rec['paid'])
+        self.assertEqual(runner.calls, [])
+        store.close()
+
+    def test_over_cap_test_approver_wrong_payee_skips_runner(self):
+        payment = self._over_cap_payment(payee=BUYER)
+        store = ca.ApprovalStore(':memory:')
+        approval = _test_approver_bundle(payment, store, clock=datetime(2098, 12, 1, tzinfo=timezone.utc))
+        rec, runner = signed_pay(amount=1_500_000, cap=1_000_000, approval=approval)
+        self.assertFalse(rec['paid'])
+        self.assertEqual(runner.calls, [])
+        store.close()
+
+    def test_over_cap_test_approver_wrong_seller_skips_runner(self):
+        payment = self._over_cap_payment(seller='ccd:testnet:11')
+        store = ca.ApprovalStore(':memory:')
+        approval = _test_approver_bundle(payment, store, clock=datetime(2098, 12, 1, tzinfo=timezone.utc))
+        rec, runner = signed_pay(amount=1_500_000, cap=1_000_000, approval=approval)
+        self.assertFalse(rec['paid'])
+        self.assertEqual(runner.calls, [])
+        store.close()
+
+    def test_stale_now_in_bundle_does_not_revive_expired(self):
+        payment = self._over_cap_payment(expires_at='2020-01-01T00:00:00+00:00')
+        store = ca.ApprovalStore(':memory:')
+        approval = _test_approver_bundle(payment, store, clock=datetime(2021, 1, 1, tzinfo=timezone.utc))
+        rec, runner = signed_pay(amount=1_500_000, cap=1_000_000, approval=approval)
+        self.assertFalse(rec['paid'])
+        self.assertEqual(runner.calls, [])
+        self.assertIn('expired', str(rec.get('reasons')))
+        store.close()
 
 
 class SignedPayTests(unittest.TestCase):
