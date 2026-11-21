@@ -399,19 +399,22 @@ def verify_test_approval(payment, approval, store, signature_verifier, now, allo
     if not approver or not signed_hash:
         return {'ok': False, 'reason': 'missing_signature'}
 
-    verified = signature_verifier(approver, signed_hash, signature)
-    if not verified.get('ok'):
-        return {'ok': False, 'reason': 'signature_failed'}
-
-    want = payment_hash(payment)
-    if signed_hash != want:
-        return {'ok': False, 'reason': 'wrong_payment'}
-
     if approver != allowed_approver:
         return {'ok': False, 'reason': 'wrong_approver'}
 
     if approver == payment.get('buyer'):
         return {'ok': False, 'reason': 'buyer_is_approver'}
+
+    want = payment_hash(payment)
+    if signed_hash != want:
+        return {'ok': False, 'reason': 'wrong_payment'}
+
+    try:
+        verified = signature_verifier(approver, signed_hash, signature)
+    except (OSError, ValueError, TypeError):
+        return {'ok': False, 'reason': 'signature_failed'}
+    if not verified.get('ok'):
+        return {'ok': False, 'reason': 'signature_failed'}
 
     expires_at = _parse_time(payment['expires_at'])
     now_dt = _parse_time(now)

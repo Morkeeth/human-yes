@@ -301,8 +301,9 @@ class SignedFixtureRunner:
 
 def signed_pay(seller='ccd:testnet:1300', amount=250000, cap=1_000_000, signed_runner=None, approval=None, check=None):
     signed_runner = SignedFixtureRunner() if signed_runner is None else signed_runner
+    clock = approval.get('test_clock') if approval else None
     rec = ct.pay_seller('req-1', seller, amount, BUYER, cap_micro_ccd=cap,
-                        check=check or gate(), signed_runner=signed_runner, approval=approval)
+                        check=check or gate(), signed_runner=signed_runner, approval=approval, clock=clock)
     return rec, signed_runner
 
 
@@ -350,7 +351,7 @@ def _test_approver_bundle(payment, store, clock=None):
         'now': datetime(2019, 1, 1, tzinfo=timezone.utc),
     }
     if clock is not None:
-        bundle['clock'] = clock
+        bundle['test_clock'] = clock
     return bundle
 
 
@@ -430,6 +431,40 @@ class TestApproverPayTests(unittest.TestCase):
 
 
 class SignedPayTests(unittest.TestCase):
+    def test_a_clock_inside_the_approval_cannot_revive_an_expired_approval(self):
+        payment = ca.build_phone_payment(
+            buyer=BUYER, payee=PAYEE_1300, seller='ccd:testnet:1300',
+            amount_micro_ccd=1_500_000, reason='test',
+            request_id='req-1', approval_nonce='ab' * 32,
+            expires_at='2020-01-01T00:00:00+00:00',
+        )
+        store = ca.ApprovalStore(':memory:')
+        approval = _test_approver_bundle(payment, store)
+        approval['clock'] = datetime(2019, 1, 1, tzinfo=timezone.utc)
+        runner = SignedFixtureRunner()
+        rec = ct.pay_seller('req-1', 'ccd:testnet:1300', 1_500_000, BUYER, cap_micro_ccd=1_000_000,
+                            check=gate(), signed_runner=runner, approval=approval)
+        self.assertFalse(rec['paid'])
+        self.assertEqual(runner.calls, [])
+        self.assertIn('expired', ' '.join(rec['reasons']))
+        store.close()
+
+    def test_a_verifier_failure_refuses_and_never_pays(self):
+        payment = ca.build_phone_payment(
+            buyer=BUYER, payee=PAYEE_1300, seller='ccd:testnet:1300',
+            amount_micro_ccd=1_500_000, reason='test',
+            request_id='req-1', approval_nonce='ab' * 32,
+            expires_at='2099-01-01T00:00:00+00:00',
+        )
+        store = ca.ApprovalStore(':memory:')
+        approval = _test_approver_bundle(payment, store)
+        approval['signature_verifier'] = lambda *_: (_ for _ in ()).throw(OSError('node down'))
+        runner = SignedFixtureRunner()
+        rec, runner = signed_pay(amount=1_500_000, cap=1_000_000, signed_runner=runner, approval=approval)
+        self.assertFalse(rec['paid'])
+        self.assertEqual(runner.calls, [])
+        store.close()
+
     def test_under_cap_signed_transfer_is_paid(self):
         rec, runner = signed_pay(amount=250000, cap=1_000_000)
         self.assertTrue(rec['paid'], rec.get('reasons'))

@@ -27,6 +27,7 @@ MCP_URL = os.environ.get('CCD_REGISTRY_MCP', 'https://agent-registry-mcp.concord
 HELPER = Path(__file__).parent / 'concordium' / 'credential.mjs'
 PAY_HELPER = Path(__file__).parent / 'concordium' / 'pay.mjs'
 SEND_HELPER = Path(__file__).parent / 'concordium' / 'send.mjs'
+TEST_APPROVER_HELPER = Path(__file__).parent / 'concordium' / 'test_approver.mjs'
 MEMO_MAX = 256
 SELLER = re.compile(r'ccd:testnet:(\d{1,19})')
 MIN_THRESHOLD = 2
@@ -182,6 +183,16 @@ def signed_transfer(buyer, payee, amount_micro_ccd, memo_hex):
     return json.loads(out.stdout)
 
 
+def test_approver_signature_ok(approver, payment_hash_hex, signature):
+    """Checks a test-approver signature against the approver's keys on testnet."""
+    try:
+        out = subprocess.run(['node', str(TEST_APPROVER_HELPER), 'verify', approver, payment_hash_hex, json.dumps(signature)],
+                             capture_output=True, text=True, timeout=60, check=True)
+        return {'ok': json.loads(out.stdout).get('ok') is True}
+    except (OSError, ValueError, TypeError, subprocess.SubprocessError):
+        return {'ok': False}
+
+
 def _signed_paid(res, buyer, payee, amount_micro_ccd, memo_hex):
     if not res.get('finalized') or res.get('reject'):
         return False
@@ -195,13 +206,13 @@ def _signed_paid(res, buyer, payee, amount_micro_ccd, memo_hex):
 
 
 def pay_seller(request_id, seller, amount_micro_ccd, buyer, cap_micro_ccd, check=None, runner=None,
-               signed_runner=None, approval=None):
+               signed_runner=None, approval=None, clock=None):
     """Pays a seller agent in CCD only after the owner's limit and all three seller checks pass.
 
     The memo carries the request, the seller agent and the evidence seal, so the payment on chain
     points at the exact evidence the buyer relied on. Without signed_runner the transfer is a node
     dry run and nothing is submitted. With signed_runner, paid is true only when the chain's own
-    record matches this sender, receiver, amount and memo. Over the cap it also needs a real approval.
+    record matches this sender, receiver, amount and memo. Over the cap it also needs a real wallet proof or the labelled test approver.
     """
     from concordium_approval import (
         FORMAT as APPROVAL_FORMAT,
@@ -276,13 +287,13 @@ def pay_seller(request_id, seller, amount_micro_ccd, buyer, cap_micro_ccd, check
                 rec['outcome'] = 'refused'
                 return _sealed(rec)
         else:
-            clock = approval.get('clock', datetime.now(timezone.utc))
+            # The time comes from this process, never from the approval bundle.
             verdict = verify_test_approval(
                 payment,
                 approval.get('presentation') or {},
                 approval['store'],
                 approval['signature_verifier'],
-                clock,
+                clock or datetime.now(timezone.utc),
                 approval['allowed_approver'],
             )
             if not verdict.get('ok'):

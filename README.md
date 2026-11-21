@@ -25,7 +25,7 @@ Concordium's promise is a verified human behind every agent. When an agent spend
 | One request can send only once | Working, tested live |
 | Payment to a real registered seller | **Not done yet** |
 | Approval bound to one payment | Logic tested with a **simulated** proof |
-| Labelled test approver on a separate account | **In progress** |
+| Labelled test approver on a separate account | Signature checked live against testnet keys, not yet run in a full payment |
 | Real person's wallet approval | **Not part of this demo**, the step before mainnet |
 | x402, PLT payment, sponsored fees | **Not built** |
 
@@ -62,6 +62,7 @@ Only method A can release a payment. A simulated proof can never produce `paid`.
 ## Limits
 
 - The signing key on testnet is held by a script. The test identity uses the test provider's default fake data, so it proves the payment path and says nothing about a real person.
+- The test approver is a separate account, but its key sits in the same folder as the agent's key. So this demo shows the approval check. It does not show protection from a hijacked machine. That needs the approver on another device.
 - The real wallet flow is in `concordium/phone-proof/` and has never completed against a wallet.
 - The evidence file holds encrypted identity shares. It cannot open them. Under Concordium's disclosure process only an authority with a court order can ask the revokers to do so. Whether a court accepts the file is a legal question this project does not answer.
 
