@@ -203,7 +203,12 @@ def pay_seller(request_id, seller, amount_micro_ccd, buyer, cap_micro_ccd, check
     dry run and nothing is submitted. With signed_runner, paid is true only when the chain's own
     record matches this sender, receiver, amount and memo. Over the cap it also needs a real approval.
     """
-    from concordium_approval import FORMAT as APPROVAL_FORMAT, verify_approval
+    from concordium_approval import (
+        FORMAT as APPROVAL_FORMAT,
+        TEST_APPROVER_LABEL,
+        verify_approval,
+        verify_test_approval,
+    )
 
     runner = runner or dry_run_transfer
     over_cap = amount_micro_ccd > cap_micro_ccd
@@ -236,7 +241,8 @@ def pay_seller(request_id, seller, amount_micro_ccd, buyer, cap_micro_ccd, check
         return _sealed(rec)
     memo_hex = memo.hex()
     if over_cap:
-        if approval.get('method') != 'challenge':
+        method = approval.get('method')
+        if method not in ('challenge', 'test_approver'):
             rec['reasons'].append('Only the payment-hash binding can release a payment.')
             return _sealed(rec)
         bound = approval.get('payment') or {}
@@ -255,19 +261,36 @@ def pay_seller(request_id, seller, amount_micro_ccd, buyer, cap_micro_ccd, check
             'approval_nonce': bound['approval_nonce'],
             'expires_at': bound['expires_at'],
         }
-        verdict = verify_approval(
-            approval['method'],
-            payment,
-            approval['presentation'],
-            approval['store'],
-            approval['proof_verifier'],
-            approval['now'],
-            memo=approval.get('memo'),
-        )
-        if not verdict.get('ok') or verdict.get('proof_layer') != 'real':
-            rec['reasons'].append(verdict.get('reason') or 'approval refused')
-            rec['outcome'] = 'refused'
-            return _sealed(rec)
+        if method == 'challenge':
+            verdict = verify_approval(
+                method,
+                payment,
+                approval['presentation'],
+                approval['store'],
+                approval['proof_verifier'],
+                approval['now'],
+                memo=approval.get('memo'),
+            )
+            if not verdict.get('ok') or verdict.get('proof_layer') != 'real':
+                rec['reasons'].append(verdict.get('reason') or 'approval refused')
+                rec['outcome'] = 'refused'
+                return _sealed(rec)
+        else:
+            clock = approval.get('clock', datetime.now(timezone.utc))
+            verdict = verify_test_approval(
+                payment,
+                approval.get('presentation') or {},
+                approval['store'],
+                approval['signature_verifier'],
+                clock,
+                approval['allowed_approver'],
+            )
+            if not verdict.get('ok'):
+                rec['reasons'].append(verdict.get('reason') or 'approval refused')
+                rec['outcome'] = 'refused'
+                return _sealed(rec)
+            rec['approval_layer'] = 'test_approver'
+            rec['approval_label'] = TEST_APPROVER_LABEL
     use_signed = signed_runner is not None
     transfer = signed_runner if use_signed else runner
     try:
