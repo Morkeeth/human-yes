@@ -4,6 +4,8 @@
 
 Built for the [Concordium Trusted Agents Hackathon](https://www.encodeclub.com/programmes/concordium-trusted-agents-hackathon). The prototype checks registered sellers and settles in native CCD on Concordium testnet. The over-budget demo uses a **script-held test key on a separate account** as the approver. A real person's wallet is the next milestone.
 
+[Download the 1:43 demo video](https://github.com/Morkeeth/human-yes/releases/download/concordium-demo-v1/human-yes-concordium-demo.mp4)
+
 ## Try it as a judge
 
 You need Python 3.11+, Node.js 20+, and internet access to GitHub, npm, and Concordium testnet. The walkthrough uses public chain data and sends no transactions.
