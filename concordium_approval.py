@@ -25,6 +25,7 @@ from concordium_trust import MEMO_MAX, _cbor_text
 
 FORMAT = 'humanyes.concordium.approval/1'
 METHODS = ('challenge', 'record', 'server_nonce')
+TEST_APPROVER_LABEL = 'TEST APPROVER: script-held key, not a real person'
 
 HASH_FIELDS = (
     'format',
@@ -375,3 +376,50 @@ def verify_approval(method, payment, presentation, store, proof_verifier, now, m
     # Approved binding. Simulated proofs never pay.
     return _result(True, 'ok', proof_layer, paid=False,
                    outcome='approved' if proof_layer == 'real' else 'approved')
+
+
+def test_approval_consume_key(approval):
+    """Stable replay key from approver, signed hash and signature body."""
+    body = {
+        'approver': approval['approver'],
+        'payment_hash': approval['payment_hash'],
+        'signature': approval['signature'],
+    }
+    return _sha256_hex(body)
+
+
+def verify_test_approval(payment, approval, store, signature_verifier, now, allowed_approver):
+    """Verify a labelled test-approver signature over one exact payment hash."""
+    signature = approval.get('signature') if approval else None
+    if not signature:
+        return {'ok': False, 'reason': 'missing_signature'}
+
+    approver = approval.get('approver')
+    signed_hash = approval.get('payment_hash')
+    if not approver or not signed_hash:
+        return {'ok': False, 'reason': 'missing_signature'}
+
+    verified = signature_verifier(approver, signed_hash, signature)
+    if not verified.get('ok'):
+        return {'ok': False, 'reason': 'signature_failed'}
+
+    want = payment_hash(payment)
+    if signed_hash != want:
+        return {'ok': False, 'reason': 'wrong_payment'}
+
+    if approver != allowed_approver:
+        return {'ok': False, 'reason': 'wrong_approver'}
+
+    if approver == payment.get('buyer'):
+        return {'ok': False, 'reason': 'buyer_is_approver'}
+
+    expires_at = _parse_time(payment['expires_at'])
+    now_dt = _parse_time(now)
+    if now_dt > expires_at:
+        return {'ok': False, 'reason': 'expired'}
+
+    consume_key = test_approval_consume_key(approval)
+    if not store.try_consume(consume_key, want):
+        return {'ok': False, 'reason': 'replay'}
+
+    return {'ok': True, 'reason': 'ok', 'label': TEST_APPROVER_LABEL}
