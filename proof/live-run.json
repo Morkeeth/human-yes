@@ -1,33 +1,22 @@
 {
   "network": "testnet",
-  "run": "demo-1795292774",
-  "at": "2026-11-21T20:26:14.178920+00:00",
+  "run": "demo-1795293552",
+  "at": "2026-11-21T20:39:12.219207+00:00",
   "buyer": "3RxGu9x7fbqcpJ6EKXW3aoJp4sMfXFWC1rNWvJV6Jic4VN9Ki3",
   "test_approver": "4WRJDFZaB9HLLPpVaFZYYS51rUaxzp8H9zuu8Yzv3zoivDDpzq",
-  "seller": "ccd:testnet:1300",
+  "seller": "ccd:testnet:1391",
   "budget_micro_ccd": 1000000,
   "approver_label": "TEST APPROVER: script-held key, not a real person",
   "steps": {
-    "1_revoked_seller": {
-      "outcome": "refused",
-      "paid": false,
-      "reasons": [
-        "Seller agent is Revoked: was just a test, purpously made to be wrong",
-        "Seller badge is not valid: agent is not Active on chain"
-      ],
-      "approval_label": null,
-      "tx": null,
-      "explorer": null
-    },
-    "2_under_budget": {
+    "1_under_budget": {
       "outcome": "paid",
       "paid": true,
       "reasons": [],
       "approval_label": null,
-      "tx": "853d0f269128f957f55e26da989a9a135cb215ed8003bfdb878c9bbff13cfea5",
-      "explorer": "https://ccdexplorer.io/testnet/transaction/853d0f269128f957f55e26da989a9a135cb215ed8003bfdb878c9bbff13cfea5"
+      "tx": "6df1b7e6a77d971e38f3e93256ba20c8ebc07e3935d4d3fd97c81f65afe70a01",
+      "explorer": "https://ccdexplorer.io/testnet/transaction/6df1b7e6a77d971e38f3e93256ba20c8ebc07e3935d4d3fd97c81f65afe70a01"
     },
-    "3_over_budget_no_approval": {
+    "2_over_budget_no_approval": {
       "outcome": "needs_approval",
       "paid": false,
       "reasons": [
@@ -37,15 +26,15 @@
       "tx": null,
       "explorer": null
     },
-    "4_test_approver_says_yes": {
+    "3_test_approver_says_yes": {
       "outcome": "paid",
       "paid": true,
       "reasons": [],
       "approval_label": "TEST APPROVER: script-held key, not a real person",
-      "tx": "03deffe212e4c8c4b416d1fcfd0dad0640acab6a2725e5331d5eb4474a4627ef",
-      "explorer": "https://ccdexplorer.io/testnet/transaction/03deffe212e4c8c4b416d1fcfd0dad0640acab6a2725e5331d5eb4474a4627ef"
+      "tx": "2fc95dd728d4ef99e39469f99ce3ad1e2cc409fd0306e2ded05e4e0c575ec147",
+      "explorer": "https://ccdexplorer.io/testnet/transaction/2fc95dd728d4ef99e39469f99ce3ad1e2cc409fd0306e2ded05e4e0c575ec147"
     },
-    "5_same_approval_again": {
+    "4_same_approval_again": {
       "outcome": "refused",
       "paid": false,
       "reasons": [
@@ -55,7 +44,7 @@
       "tx": null,
       "explorer": null
     },
-    "6_same_approval_higher_amount": {
+    "5_same_approval_higher_amount": {
       "outcome": "refused",
       "paid": false,
       "reasons": [
@@ -64,6 +53,34 @@
       "approval_label": null,
       "tx": null,
       "explorer": null
+    },
+    "6_seller_active_gets_paid": {
+      "outcome": "paid",
+      "paid": true,
+      "reasons": [],
+      "approval_label": null,
+      "tx": "53ddc067d80015f5753cadd473feb567699a6ee6af506a5fc491799f9d3116a8",
+      "explorer": "https://ccdexplorer.io/testnet/transaction/53ddc067d80015f5753cadd473feb567699a6ee6af506a5fc491799f9d3116a8"
+    },
+    "7_owner_revokes_seller_on_chain": {
+      "outcome": "revoked",
+      "paid": false,
+      "reasons": [],
+      "approval_label": null,
+      "tx": "e7cd2467cba411ef137dcfbfff6ab3bd32a42d2dfa95a3f653d2f037ff4de896",
+      "explorer": "https://ccdexplorer.io/testnet/transaction/e7cd2467cba411ef137dcfbfff6ab3bd32a42d2dfa95a3f653d2f037ff4de896"
+    },
+    "8_same_seller_after_revoke": {
+      "outcome": "refused",
+      "paid": false,
+      "reasons": [
+        "Seller agent is Revoked: Human Yes demo revoke",
+        "Seller badge is not valid: agent is not Active on chain"
+      ],
+      "approval_label": null,
+      "tx": null,
+      "explorer": null
     }
-  }
+  },
+  "revocable_seller": "ccd:testnet:1392"
 }
