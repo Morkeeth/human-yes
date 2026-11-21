@@ -32,10 +32,10 @@ const refuse = (reason, txHash = null) => {
   process.exit(0);
 };
 
-async function report(hash) {
+async function report(hash, alreadySent = false) {
   const txHash = TransactionHash.fromHexString(hash);
   const read = readTransfer(await waitForFinal(() => client.getBlockItemStatus(txHash)));
-  console.log(JSON.stringify({ mode: 'signed', tx_hash: hash, ...read }));
+  console.log(JSON.stringify({ mode: 'signed', tx_hash: hash, already_sent: alreadySent, ...read }));
 }
 
 const key = requestKey(memoHex);
@@ -44,7 +44,7 @@ const reservation = reserveSend(SENT, key, { receiver: payee, amount_micro_ccd: 
 if (reservation.action === 'conflict') refuse('this request id was already used for another payee or amount');
 if (reservation.action === 'unknown') refuse('an earlier send for this request did not record a result, check the chain before retrying');
 if (reservation.action === 'already_sent') {
-  await report(reservation.tx_hash);
+  await report(reservation.tx_hash, true);
   process.exit(0);
 }
 

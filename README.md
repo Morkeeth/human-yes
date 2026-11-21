@@ -2,6 +2,8 @@
 
 **A verified human says yes to this exact agent payment, or it does not move.**
 
+> **Demo status:** the approval in this build comes from a clearly labelled test approver, a script-held key on a separate account. No real person approves anything yet. The real wallet approval is the step before mainnet.
+
 Entry for the [Concordium Trusted Agents Hackathon](https://www.encodeclub.com/programmes/concordium-trusted-agents-hackathon). Runs on Concordium testnet.
 
 ## The problem

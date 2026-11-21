@@ -193,6 +193,17 @@ def test_approver_signature_ok(approver, payment_hash_hex, signature):
         return {'ok': False}
 
 
+def _memo_request(memo_hex):
+    """The request id inside a memo written by pay_seller, or None."""
+    try:
+        raw = bytes.fromhex(memo_hex)
+        if raw[0] != 0x78 or len(raw) != raw[1] + 2:
+            return None
+        return json.loads(raw[2:].decode()).get('aa')
+    except (TypeError, ValueError, IndexError, AttributeError):
+        return None
+
+
 def _signed_paid(res, buyer, payee, amount_micro_ccd, memo_hex):
     if not res.get('finalized') or res.get('reject'):
         return False
@@ -318,6 +329,15 @@ def pay_seller(request_id, seller, amount_micro_ccd, buyer, cap_micro_ccd, check
     if use_signed and res.get('tx_hash') and not res.get('finalized') and not res.get('reject'):
         rec['outcome'] = 'pending'
         rec['reasons'].append('Transfer sent and not finalized yet.')
+        return _sealed(rec)
+    if use_signed and res.get('already_sent') and res.get('finalized') and not res.get('reject'):
+        # A retry builds a new seal, so compare the request id in the memo already on chain.
+        same = res.get('sender') == buyer and res.get('receiver') == payee \
+            and res.get('amount_micro_ccd') == str(int(amount_micro_ccd)) and _memo_request(res.get('memo_hex')) == request_id
+        rec['paid'] = same
+        rec['outcome'] = 'already_paid' if same else 'failed'
+        if not same:
+            rec['reasons'].append('The recorded transfer does not match this request.')
         return _sealed(rec)
     if use_signed:
         if res.get('reject'):

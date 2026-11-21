@@ -153,6 +153,7 @@ class EvidenceTests(unittest.TestCase):
         self.assertNotIn('signature', json.dumps(pay).lower().replace('"signed"', ''))
 
 
+@unittest.skipUnless(os.environ.get('CCD_LIVE') == '1', 'set CCD_LIVE=1 to run against testnet')
 class LiveTestnetTests(unittest.TestCase):
     def test_live_green_and_red(self):
         g = ct.SellerCheck()
@@ -432,6 +433,25 @@ class TestApproverPayTests(unittest.TestCase):
 
 
 class SignedPayTests(unittest.TestCase):
+    def _retry_runner(self, request_id):
+        chain_memo = ct._cbor_text(json.dumps({'aa': request_id, 'seller': 'ccd:testnet:1300', 'seal': 'old'},
+                                              separators=(',', ':'))).hex()
+        def already_sent(buyer, payee, amount, _new_memo):
+            return {'mode': 'signed', 'already_sent': True, 'tx_hash': 'ab' * 32, 'finalized': True, 'reject': None,
+                    'sender': buyer, 'receiver': payee, 'amount_micro_ccd': str(amount), 'memo_hex': chain_memo}
+        return already_sent
+
+    def test_retry_of_a_paid_request_reports_already_paid(self):
+        rec, _ = signed_pay(signed_runner=self._retry_runner('req-1'))
+        self.assertTrue(rec['paid'], rec.get('reasons'))
+        self.assertEqual(rec['outcome'], 'already_paid')
+        self.assertEqual(rec['payment']['tx_hash'], 'ab' * 32)
+
+    def test_recorded_transfer_for_another_request_is_not_paid(self):
+        rec, _ = signed_pay(signed_runner=self._retry_runner('req-other'))
+        self.assertFalse(rec['paid'])
+        self.assertEqual(rec['outcome'], 'failed')
+
     def test_a_send_that_crashes_is_unknown_and_never_refused(self):
         def crashed(*_):
             raise subprocess.CalledProcessError(1, 'node')
