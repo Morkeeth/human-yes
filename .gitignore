@@ -5,3 +5,4 @@ __pycache__/
 *.db-*
 concordium/phone-proof/receipts/
 .env
+.venv/
