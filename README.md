@@ -12,7 +12,7 @@ Concordium's promise is a verified human behind every agent. When an agent spend
 
 1. **Checks the seller.** Before an agent pays, it asks Concordium three things. Is the seller Active in the Agent Registry? Does its Verified by Concordium badge pass `check_badge`? Does its owner hold an identity credential, with identity shares held by anonymity revokers at a threshold of 2 or more?
 2. **Pays under budget.** The agent sends a signed CCD transfer. The memo carries the request, the seller and the seal of an evidence file, so the payment on chain points at what the agent relied on.
-3. **Stops over budget.** The payment waits for a proof from a verified person's separate Concordium wallet. The proof is bound to the hash of that exact payment: buyer, payee, seller, amount, token, network, request, one-time nonce and expiry. The person's identity is not revealed.
+3. **Stops over budget.** The payment waits for an approval from a separate Concordium account. In production that is a verified person's wallet. This demo uses a clearly labelled test approver. The proof is bound to the hash of that exact payment: buyer, payee, seller, amount, token, network, request, one-time nonce and expiry. In production the person's identity is not revealed.
 4. **Reads the result from the chain.** A payment counts as paid only when the finalized transaction shows the expected sender, receiver, amount and memo.
 
 ## Status
@@ -25,7 +25,8 @@ Concordium's promise is a verified human behind every agent. When an agent spend
 | One request can send only once | Working, tested live |
 | Payment to a real registered seller | **Not done yet** |
 | Approval bound to one payment | Logic tested with a **simulated** proof |
-| Real wallet approval | **Not run yet** |
+| Labelled test approver on a separate account | **In progress** |
+| Real person's wallet approval | **Not part of this demo**, the step before mainnet |
 | x402, PLT payment, sponsored fees | **Not built** |
 
 Signed testnet transfers on CCDExplorer:
