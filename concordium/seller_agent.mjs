@@ -34,7 +34,8 @@ const AGENTS_FILE = join(DIR, 'agents.json');
 const PROXY = 'https://wallet-proxy.testnet.concordium.com';
 const IP_INDEX = 0;
 const IDENTITY_INDEX = 0;
-const FUND_MICRO = 15_000_000n;
+// A registry call reserves its full energy up front, at testnet rates, so the seller needs a real float of test CCD.
+const FUND_MICRO = 1_000_000_000n;
 const here = dirname(fileURLToPath(import.meta.url));
 const CARD_FILE = join(here, '..', 'agents', 'seller.json');
 const AGENT_NAME = 'Human Yes Seller';
@@ -274,7 +275,8 @@ async function cmdCard(agentUri) {
     token_id: String(tokenId),
   });
   mkdirSync(dirname(CARD_FILE), { recursive: true });
-  writeFileSync(CARD_FILE, `${built.agent_card_json}\n`, { mode: 0o644 });
+  // Written byte for byte, because the on-chain hash covers these exact bytes.
+  writeFileSync(CARD_FILE, built.agent_card_json, { mode: 0o644 });
   state.steps.card = {
     agent_uri: agentUri,
     metadata_hash_hex: built.metadata_hash_hex,
