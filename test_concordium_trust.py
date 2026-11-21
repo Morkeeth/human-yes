@@ -9,6 +9,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import subprocess
 import tempfile
 import unittest
 
@@ -431,6 +432,22 @@ class TestApproverPayTests(unittest.TestCase):
 
 
 class SignedPayTests(unittest.TestCase):
+    def test_a_send_that_crashes_is_unknown_and_never_refused(self):
+        def crashed(*_):
+            raise subprocess.CalledProcessError(1, 'node')
+        rec, _ = signed_pay(signed_runner=crashed)
+        self.assertFalse(rec['paid'])
+        self.assertEqual(rec['outcome'], 'unknown')
+
+    def test_a_sent_transfer_not_yet_final_is_pending(self):
+        def waiting(_buyer, _payee, _amount, _memo):
+            return {'mode': 'signed', 'tx_hash': 'ab' * 32, 'finalized': False, 'reject': None,
+                    'sender': None, 'receiver': None, 'amount_micro_ccd': None, 'memo_hex': None}
+        rec, _ = signed_pay(signed_runner=waiting)
+        self.assertFalse(rec['paid'])
+        self.assertEqual(rec['outcome'], 'pending')
+        self.assertEqual(rec['payment']['tx_hash'], 'ab' * 32)
+
     def test_a_clock_inside_the_approval_cannot_revive_an_expired_approval(self):
         payment = ca.build_phone_payment(
             buyer=BUYER, payee=PAYEE_1300, seller='ccd:testnet:1300',

@@ -54,3 +54,18 @@ export function recordSent(dir, key, txHash) {
   writeFileSync(tmp, JSON.stringify({ ...saved, tx_hash: txHash }), { mode: 0o600 });
   renameSync(tmp, file(dir, key));
 }
+
+// A node error while waiting says nothing about the transfer, so keep asking. Running out returns the last status.
+export async function waitForFinal(getStatus, { attempts = 75, delayMs = 2000 } = {}) {
+  let last = { status: 'unknown' };
+  for (let i = 0; i < attempts; i += 1) {
+    try {
+      last = await getStatus();
+      if (last?.status === 'finalized') return last;
+    } catch {
+      // Retry below.
+    }
+    await new Promise((resolve) => setTimeout(resolve, delayMs));
+  }
+  return last;
+}

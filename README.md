@@ -21,17 +21,19 @@ Concordium's promise is a verified human behind every agent. When an agent spend
 |---|---|
 | Seller checks against live testnet | Working |
 | Revoked seller refused before any transfer | Working |
-| Signed CCD transfer with memo | Working, between our own test accounts |
+| Signed CCD transfer with memo | Working |
 | One request can send only once | Working, tested live |
-| Payment to a real registered seller | **Not done yet** |
+| Payment to a real registered seller (agent 1300) | Working, live on testnet |
 | Approval bound to one payment | Logic tested with a **simulated** proof |
-| Labelled test approver on a separate account | Signature checked live against testnet keys, not yet run in a full payment |
+| Over-budget payment released by a labelled test approver | Working, live on testnet |
 | Real person's wallet approval | **Not part of this demo**, the step before mainnet |
 | x402, PLT payment, sponsored fees | **Not built** |
 
 Signed testnet transfers on CCDExplorer:
-- [First signed transfer](https://ccdexplorer.io/testnet/transaction/b0824dd440104e4d8c1d0fa70f74bb7ae108160dd643bff51530cb3394ff4827)
-- [Transfer through the send-once guard](https://ccdexplorer.io/testnet/transaction/a0e176e22a28a764ad8e6758e4628ec0bf708361dd4641788acbd62e0051f5ce)
+- [Under budget: the agent pays seller 1300](https://ccdexplorer.io/testnet/transaction/853d0f269128f957f55e26da989a9a135cb215ed8003bfdb878c9bbff13cfea5)
+- [Over budget: paid after the labelled test approver signed that exact payment](https://ccdexplorer.io/testnet/transaction/03deffe212e4c8c4b416d1fcfd0dad0640acab6a2725e5331d5eb4474a4627ef)
+
+The full run is in [`proof/live-run.json`](proof/live-run.json). In that run a revoked seller was refused, an over-budget payment stopped without approval, and reusing the approval or raising the amount was refused.
 
 ## Run it
 
@@ -46,6 +48,8 @@ python3 -m pytest -q test_concordium_trust.py test_concordium_approval.py
 ```
 
 Agents 1300 and 11 belong to other people on a public test network, so their state can change.
+
+`python3 demo.py` runs the whole flow live. It sends real testnet transfers, so it needs a funded test key folder, created with `concordium/provision_identity.mjs` and `concordium/provision_account.mjs`.
 
 ## How the approval is bound
 

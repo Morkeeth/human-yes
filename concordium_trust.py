@@ -179,7 +179,7 @@ def signed_transfer(buyer, payee, amount_micro_ccd, memo_hex):
     """Submits a signed CCD transfer with memo on testnet. buyer is recorded for parity; signing uses credential 0."""
     del buyer  # send.mjs signs from the factory key, not an arbitrary buyer account
     out = subprocess.run(['node', str(SEND_HELPER), payee, str(int(amount_micro_ccd)), memo_hex],
-                         capture_output=True, text=True, timeout=180, check=True)
+                         capture_output=True, text=True, timeout=240, check=True)
     return json.loads(out.stdout)
 
 
@@ -307,9 +307,18 @@ def pay_seller(request_id, seller, amount_micro_ccd, buyer, cap_micro_ccd, check
     try:
         res = transfer(buyer, payee, int(amount_micro_ccd), memo_hex)
     except (OSError, ValueError, subprocess.SubprocessError) as exc:
+        if use_signed:
+            # The transfer may already be on chain, so this must never read as a refusal.
+            rec['outcome'] = 'unknown'
+            rec['reasons'].append('The send did not report a result. Check the chain before retrying: ' + type(exc).__name__)
+            return _sealed(rec)
         rec['reasons'].append('Testnet node did not run the transfer: ' + type(exc).__name__)
         return _sealed(rec)
     rec['payment'] = {**res, 'payee_expected': payee, 'memo_expected_hex': memo_hex, 'signed': use_signed}
+    if use_signed and res.get('tx_hash') and not res.get('finalized') and not res.get('reject'):
+        rec['outcome'] = 'pending'
+        rec['reasons'].append('Transfer sent and not finalized yet.')
+        return _sealed(rec)
     if use_signed:
         if res.get('reject'):
             rec['reasons'].append('Chain rejected the transfer: ' + str(res.get('reject'))[:200])

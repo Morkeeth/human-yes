@@ -8,7 +8,7 @@ import {
   AccountAddress, CcdAmount, ConcordiumHdWallet, DataBlob, Transaction, TransactionHash, buildBasicAccountSigner,
 } from '@concordium/web-sdk';
 import { ConcordiumGRPCNodeClient, credentials } from '@concordium/web-sdk/nodejs';
-import { readTransfer, recordSent, requestKey, reserveSend } from './send_guard.mjs';
+import { readTransfer, recordSent, requestKey, reserveSend, waitForFinal } from './send_guard.mjs';
 
 const TESTNET_GENESIS = '4221332d34e1694168c2a0c0b3fd0f273809612cb13d000d5c2e00e85f50f796';
 const DIR = process.env.CCD_HF_KEY_DIR || join(homedir(), '.concordium-hf-testnet');
@@ -34,8 +34,7 @@ const refuse = (reason, txHash = null) => {
 
 async function report(hash) {
   const txHash = TransactionHash.fromHexString(hash);
-  await client.waitForTransactionFinalization(txHash, 120000);
-  const read = readTransfer(await client.getBlockItemStatus(txHash));
+  const read = readTransfer(await waitForFinal(() => client.getBlockItemStatus(txHash)));
   console.log(JSON.stringify({ mode: 'signed', tx_hash: hash, ...read }));
 }
 

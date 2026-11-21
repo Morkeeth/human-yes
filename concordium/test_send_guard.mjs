@@ -6,7 +6,7 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
-import { readTransfer, recordSent, requestKey, reserveSend } from './send_guard.mjs';
+import { readTransfer, recordSent, requestKey, reserveSend, waitForFinal } from './send_guard.mjs';
 
 const CHAIN_SENDER = '3RxGu9x7fbqcpJ6EKXW3aoJp4sMfXFWC1rNWvJV6Jic4VN9Ki3';
 const CHAIN_RECEIVER = '4WRJDFZaB9HLLPpVaFZYYS51rUaxzp8H9zuu8Yzv3zoivDDpzq';
@@ -91,4 +91,19 @@ test('the same request with another payee or amount is refused', () => {
     assert.equal(reserveSend(dir, 'k3', { ...intent, amount_micro_ccd: '2000000' }).action, 'conflict');
     assert.equal(reserveSend(dir, 'k3', { ...intent, receiver: CHAIN_SENDER }).action, 'conflict');
   } finally { rmSync(dir, { recursive: true }); }
+});
+
+test('waiting survives a node error and returns the finalized status', async () => {
+  const seen = [{ error: true }, { status: 'committed', outcomes: [] }, finalized(transfer())];
+  const status = await waitForFinal(async () => {
+    const next = seen.shift();
+    if (next.error) throw new Error('DEADLINE_EXCEEDED');
+    return next;
+  }, { attempts: 5, delayMs: 1 });
+  assert.equal(readTransfer(status).finalized, true);
+});
+
+test('waiting that runs out returns not finalized and does not throw', async () => {
+  const status = await waitForFinal(async () => { throw new Error('node down'); }, { attempts: 3, delayMs: 1 });
+  assert.equal(readTransfer(status).finalized, false);
 });
