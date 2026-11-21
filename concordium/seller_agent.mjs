@@ -30,15 +30,16 @@ import { waitForFinal } from './send_guard.mjs';
 const TESTNET_GENESIS = '4221332d34e1694168c2a0c0b3fd0f273809612cb13d000d5c2e00e85f50f796';
 const DIR = process.env.CCD_HF_KEY_DIR || join(homedir(), '.concordium-hf-testnet');
 const ACCOUNTS_FILE = join(DIR, 'accounts.json');
-const AGENTS_FILE = join(DIR, 'agents.json');
+const SUFFIX = SELLER_CREDENTIAL === 2 ? '' : `-${SELLER_CREDENTIAL}`;
+const AGENTS_FILE = join(DIR, `agents${SUFFIX}.json`);
 const PROXY = 'https://wallet-proxy.testnet.concordium.com';
 const IP_INDEX = 0;
 const IDENTITY_INDEX = 0;
 // A registry call reserves its full energy up front, at testnet rates, so the seller needs a real float of test CCD.
 const FUND_MICRO = 1_000_000_000n;
 const here = dirname(fileURLToPath(import.meta.url));
-const CARD_FILE = join(here, '..', 'agents', 'seller.json');
-const AGENT_NAME = 'Human Yes Seller';
+const CARD_FILE = join(here, '..', 'agents', `seller${SUFFIX}.json`);
+const AGENT_NAME = SELLER_CREDENTIAL === 2 ? 'Human Yes Seller' : `Human Yes Revocable Seller ${SELLER_CREDENTIAL}`;
 const AGENT_DESCRIPTION = 'Human Yes demo seller agent on Concordium testnet';
 
 const [cmd, ...rest] = process.argv.slice(2);

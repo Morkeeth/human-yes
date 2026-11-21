@@ -5,7 +5,8 @@ const ALLOWED_NETWORK = 'testnet';
 
 export const MCP_URL = process.env.CCD_REGISTRY_MCP || 'https://agent-registry-mcp.concordium.com/mcp';
 
-export const SELLER_CREDENTIAL = 2;
+export const SELLER_CREDENTIAL = Number(process.env.CCD_SELLER_CREDENTIAL || 2);
+if (!Number.isInteger(SELLER_CREDENTIAL) || SELLER_CREDENTIAL < 2) throw new Error('seller credential must be 2 or higher');
 
 /** Recorded from a read-only build_register call on testnet. */
 export const FIXTURE_BUILD_REGISTER = {
