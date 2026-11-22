@@ -2,13 +2,9 @@
 
 **A buying agent checks who it’s paying before it spends. Over budget, it waits for approval of that exact payment.**
 
-Built for the [Concordium Trusted Agents Hackathon](https://www.encodeclub.com/programmes/concordium-trusted-agents-hackathon). The prototype checks registered sellers and settles in native CCD on Concordium testnet. The over-budget demo uses a **script-held test key on a separate account** as the approver. A real person's wallet is the next milestone.
+## Run the proof
 
-[Download the 1:43 demo video](https://github.com/Morkeeth/human-yes/releases/download/concordium-demo-v1/human-yes-concordium-demo.mp4)
-
-## Try it as a judge
-
-You need Python 3.11+, Node.js 20+, and internet access to GitHub, npm, and Concordium testnet. The walkthrough uses public chain data and sends no transactions.
+You need Python 3.11+, Node.js 20+, and internet access to GitHub, npm, and Concordium testnet. You need no wallet or keys, and the command sends no transactions.
 
 ```sh
 git clone https://github.com/Morkeeth/human-yes.git
@@ -16,6 +12,14 @@ cd human-yes
 (cd concordium && npm ci)
 python3 judge.py
 ```
+
+**What this proves:** the payment controls work on Concordium testnet.
+
+**What this does not prove:** that a real person approved the payment. The approver is a **script-held test key** on a separate account, and it was held on the same machine as the buyer key. A real person's wallet is the next milestone.
+
+Built for the [Concordium Trusted Agents Hackathon](https://www.encodeclub.com/programmes/concordium-trusted-agents-hackathon). The prototype checks registered sellers and settles in native CCD on testnet. The [1:43 demo video](https://github.com/Morkeeth/human-yes/releases/download/concordium-demo-v1/human-yes-concordium-demo.mp4) was recorded before the approval check below was added.
+
+## What the command checks
 
 The walkthrough looks up the current state of both sellers and runs the buyer’s gate. It dry-runs a 0.25 CCD transfer to the active seller, stops a 1.50 CCD request at the 1 CCD cap, and refuses a 0.25 CCD purchase from the revoked seller. It then reads the four earlier finalized transactions from the public testnet node and prints their explorer links. A missing or mismatched chain result stops verification with an error.
 
