@@ -9,7 +9,7 @@ from unittest import mock
 
 import concordium_approval as ca
 import concordium_trust as ct
-from judge import approval_judge_cases
+from judge import approval_judge_cases, retry_node
 
 from test_concordium_trust import (
     BUYER, PAYEE_1300, SignedFixtureRunner, TEST_APPROVER, TEST_APPROVER_LABEL,
@@ -123,6 +123,35 @@ class MemoBindingTests(unittest.TestCase):
 def signature_ok_for(receipt):
     good = receipt['signature']
     return lambda _a, _h, sig: {'ok': sig == good}
+
+
+class RetryNodeTests(unittest.TestCase):
+    @staticmethod
+    def failing(stderr, then=None, failures=1):
+        calls = []
+        def call():
+            calls.append(1)
+            if len(calls) <= failures:
+                raise subprocess.CalledProcessError(1, 'node', stderr=stderr)
+            return then
+        return call, calls
+
+    def test_busy_node_is_retried(self):
+        call, calls = self.failing('Received HTTP status code 502', then='ok', failures=2)
+        self.assertEqual(retry_node(call, sleep=lambda _s: None), 'ok')
+        self.assertEqual(len(calls), 3)
+
+    def test_a_mismatch_is_never_retried(self):
+        call, calls = self.failing('Memo approval commitment does not match.', then='ok')
+        with self.assertRaises(subprocess.CalledProcessError):
+            retry_node(call, sleep=lambda _s: None)
+        self.assertEqual(len(calls), 1)
+
+    def test_a_node_that_stays_down_still_stops(self):
+        call, calls = self.failing('Received HTTP status code 502', failures=99)
+        with self.assertRaises(subprocess.CalledProcessError):
+            retry_node(call, sleep=lambda _s: None)
+        self.assertEqual(len(calls), 4)
 
 
 class JudgeMatrixTests(unittest.TestCase):

@@ -1,6 +1,8 @@
 """Verify the published Human Yes run and try its payment gates without keys."""
 import json
+import re
 import tempfile
+import time
 from datetime import datetime, timedelta
 from pathlib import Path
 import subprocess
@@ -8,7 +10,7 @@ import sys
 from uuid import uuid4
 
 import concordium_approval as ca
-from concordium_trust import SellerCheck, dry_run_transfer, pay_seller
+from concordium_trust import SellerCheck, dry_run_transfer, pay_seller, read_credentials
 
 
 ROOT = Path(__file__).resolve().parent
@@ -21,13 +23,29 @@ def require(condition, message):
         raise ValueError(message)
 
 
+NODE_BUSY = re.compile(r'HTTP status code 5\d\d|UNAVAILABLE|DEADLINE_EXCEEDED|ECONNRESET|ETIMEDOUT', re.I)
+RETRY_DELAYS = (3, 6, 12)
+
+
+def retry_node(call, *args, sleep=time.sleep, **kwargs):
+    """Retries only when the public node is busy. A refused or mismatched check fails at once."""
+    for delay in (*RETRY_DELAYS, None):
+        try:
+            return call(*args, **kwargs)
+        except subprocess.CalledProcessError as error:
+            if delay is None or not NODE_BUSY.search(error.stderr or ''):
+                raise
+            print(f'Public testnet node is busy. Retrying in {delay} seconds.', file=sys.stderr, flush=True)
+            sleep(delay)
+
+
+def run_node(*args):
+    return retry_node(subprocess.run, ['node', *map(str, args)], capture_output=True, text=True, timeout=90, check=True)
+
+
 def chain_signature_check(approver, payment_hash_hex, signature):
     """Reads the approver's public keys from testnet. A node failure stops the walkthrough."""
-    out = subprocess.run(
-        ['node', str(ROOT / 'concordium' / 'test_approver.mjs'), 'verify', approver, payment_hash_hex,
-         json.dumps(signature)],
-        capture_output=True, text=True, timeout=60, check=True,
-    )
+    out = run_node(ROOT / 'concordium' / 'test_approver.mjs', 'verify', approver, payment_hash_hex, json.dumps(signature))
     return {'ok': json.loads(out.stdout).get('ok') is True}
 
 
@@ -107,7 +125,7 @@ def main():
     receipt = json.loads(RECEIPT.read_text())
     active = receipt['seller']
     revoked = receipt['revocable_seller']
-    checks = SellerCheck()
+    checks = SellerCheck(credentials=lambda account: retry_node(read_credentials, account))
     buyer = receipt['buyer']
     cap = receipt['budget_micro_ccd']
     attempt = f'judge-{uuid4().hex}'
@@ -115,7 +133,10 @@ def main():
     print('Human Yes | Concordium testnet', flush=True)
     print('Fresh checks and dry runs. No signing keys or transfers.\n', flush=True)
 
-    def pay(name, seller, amount, runner=dry_run_transfer):
+    def dry_run(*args):
+        return retry_node(dry_run_transfer, *args)
+
+    def pay(name, seller, amount, runner=dry_run):
         return pay_seller(f'{attempt}-{name}', seller, amount, buyer, cap, check=checks, runner=runner)
 
     def unexpected_payment(*_):
@@ -140,12 +161,8 @@ def main():
     print(f'{revoked}  Revoked · 0.25 CCD payment refused', flush=True)
 
     print('\nEarlier run · finalized transactions read from the public testnet node', flush=True)
-    result = subprocess.run(
-        ['node', str(ROOT / 'concordium' / 'verify_run.mjs'), str(RECEIPT),
-         evidence['agent']['agent_wallet'], blocked['evidence']['agent']['agent_wallet'],
-         blocked['evidence']['agent']['owner_account']],
-        capture_output=True, text=True, timeout=90, check=True,
-    )
+    result = run_node(ROOT / 'concordium' / 'verify_run.mjs', RECEIPT, evidence['agent']['agent_wallet'],
+                      blocked['evidence']['agent']['agent_wallet'], blocked['evidence']['agent']['owner_account'])
     for label, url in json.loads(result.stdout):
         print(label)
         print(f'  {url}')
@@ -153,10 +170,7 @@ def main():
     closing = 'All checks passed. Earlier approval used a script-held test key.'
     if APPROVAL_RECEIPT.exists():
         print('\nApproval receipt · independent chain check', flush=True)
-        verify_out = subprocess.run(
-            ['node', str(ROOT / 'concordium' / 'verify_approval.mjs'), str(APPROVAL_RECEIPT)],
-            capture_output=True, text=True, timeout=90, check=True,
-        )
+        verify_out = run_node(ROOT / 'concordium' / 'verify_approval.mjs', APPROVAL_RECEIPT)
         verified = json.loads(verify_out.stdout)
         print(f"  {verified['explorer']}")
         chain_clock = verified['block_time']
