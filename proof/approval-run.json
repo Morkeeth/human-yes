@@ -1,0 +1,29 @@
+{
+  "network": "testnet",
+  "run": "approval-1795323765",
+  "buyer": "3RxGu9x7fbqcpJ6EKXW3aoJp4sMfXFWC1rNWvJV6Jic4VN9Ki3",
+  "test_approver": "4WRJDFZaB9HLLPpVaFZYYS51rUaxzp8H9zuu8Yzv3zoivDDpzq",
+  "approver_label": "TEST APPROVER: script-held key, not a real person",
+  "seller": "ccd:testnet:1391",
+  "budget_micro_ccd": 1000000,
+  "payment": {
+    "format": "humanyes.concordium.approval/1",
+    "network": "testnet",
+    "request_id": "approval-1795323765-over",
+    "buyer": "3RxGu9x7fbqcpJ6EKXW3aoJp4sMfXFWC1rNWvJV6Jic4VN9Ki3",
+    "payee": "4feUwnLc2VwcUi3ra7itkiEA6jQ9BPmCcLBZ5UF1mERii7LFBD",
+    "seller": "ccd:testnet:1391",
+    "amount_micro_ccd": "1500000",
+    "token": "CCD",
+    "approval_nonce": "2191e27f51bd37c65b6ec41fdae073a23abd769ec25d7a00529f7dd3b90b4059",
+    "expires_at": "2026-11-22T05:12:47.486377+00:00"
+  },
+  "payment_hash": "a52cc7f827dc6cd0d014d7162f88c6bce9cbe6075f9aeb546b286ecf4e5075a0",
+  "signature": {
+    "0": {
+      "0": "b12353ae49e54a22565cf8878e58019051db87b006fd31223e6837efced50751db3b8d450812b6b0526379073f3ca07d883e62f41e3b1710cd42b0f017115f08"
+    }
+  },
+  "tx": "75faf0373a6c87a2465fed8e6f7cc60289c84cb2155a6c3bc631d752388b3a25",
+  "explorer": "https://ccdexplorer.io/testnet/transaction/75faf0373a6c87a2465fed8e6f7cc60289c84cb2155a6c3bc631d752388b3a25"
+}

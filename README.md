@@ -19,6 +19,19 @@ python3 judge.py
 
 The walkthrough looks up the current state of both sellers and runs the buyer’s gate. It dry-runs a 0.25 CCD transfer to the active seller, stops a 1.50 CCD request at the 1 CCD cap, and refuses a 0.25 CCD purchase from the revoked seller. It then reads the four earlier finalized transactions from the public testnet node and prints their explorer links. A missing or mismatched chain result stops verification with an error.
 
+### Check the over-budget approval yourself
+
+The same command rechecks one [1.50 CCD payment above the 1 CCD cap](https://ccdexplorer.io/testnet/transaction/75faf0373a6c87a2465fed8e6f7cc60289c84cb2155a6c3bc631d752388b3a25) from its [public receipt](proof/approval-run.json). It confirms that:
+
+- the approver's signature matches that account's public keys on testnet;
+- the signature covers this buyer, seller, payee, amount, nonce and expiry;
+- the finalized transfer's memo commits to that signature, so the signature existed before the payment landed;
+- the payment landed before the approval expired.
+
+It then runs the real approval gate on that signature, with nothing sent. The exact payment passes. A replay, one extra micro CCD, a different payee, an altered signature, the buyer approving itself and an expired approval are each refused.
+
+The cap is enforced by the buyer's application. The chain does not stop a key holder from sending a transfer without approval. The check proves that this payment carried a valid approval from the separate test account.
+
 ### Earlier signed testnet run
 
 | What happened | Public evidence |
@@ -28,7 +41,7 @@ The walkthrough looks up the current state of both sellers and runs the buyer’
 | Seller 1392 was paid while active | [0.25 CCD transfer](https://ccdexplorer.io/testnet/transaction/53ddc067d80015f5753cadd473feb567699a6ee6af506a5fc491799f9d3116a8) |
 | Seller 1392's owner then revoked its registration | [Agent Registry call](https://ccdexplorer.io/testnet/transaction/e7cd2467cba411ef137dcfbfff6ab3bd32a42d2dfa95a3f653d2f037ff4de896) |
 
-The [application receipt](proof/live-run.json) also records the initial approval hold, refusal of a replay and a higher amount, and refusal of the payment after revocation. The approval and refusal decisions happen in the application. The explorer shows the transfers and the registry revocation.
+The [application receipt](proof/live-run.json) also records the initial approval hold, refusal of a replay and a higher amount, and refusal of the payment after revocation. That earlier run did not save its approval signature, so its approval can only be read from the receipt. The payment in the section above is the one a judge can verify.
 
 ## How it works
 
@@ -36,7 +49,7 @@ A procurement agent buying a vendor report has two decisions to make. Is this se
 
 1. The buyer looks up the seller through the Concordium Agent Registry MCP. It requires an active registration, a valid Verified by Concordium badge, and a seller owner account with an identity credential and at least two required revokers.
 2. The buyer can pay in native CCD below or at its cap. Above the cap, it holds the request for a separate signer. The approval covers the buyer, payee, seller, amount, token, network, request ID, one-time nonce and expiry. A change to the amount invalidates the approval.
-3. The transfer memo references the request, seller and hash of the evidence used to make the decision. The application reports a payment as paid once the node confirms the finalized sender, payee, amount and memo.
+3. The transfer memo references the request, seller and hash of the evidence used to make the decision. An approved over-cap payment also commits to the approval signature. The application reports a payment as paid once the node confirms the finalized sender, payee, amount and memo.
 4. A later purchase checks the registry again. If the seller has been revoked, the buyer refuses the payment.
 
 ## Prototype scope and path to mainnet
