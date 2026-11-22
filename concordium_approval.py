@@ -103,6 +103,11 @@ def payment_hash(payment):
     return _sha256_hex(payment_body(payment))
 
 
+def approval_commitment(payment_hash_hex, signature):
+    """SHA-256 of canonical JSON binding one payment hash to one approver signature."""
+    return _sha256_hex({'payment_hash': payment_hash_hex, 'signature': signature})
+
+
 def approval_record(proof_id, payment_hash_hex):
     return {'proof_id': proof_id, 'payment_hash': payment_hash_hex}
 
@@ -399,11 +404,11 @@ def verify_test_approval(payment, approval, store, signature_verifier, now, allo
     if not approver or not signed_hash:
         return {'ok': False, 'reason': 'missing_signature'}
 
-    if approver != allowed_approver:
-        return {'ok': False, 'reason': 'wrong_approver'}
-
     if approver == payment.get('buyer'):
         return {'ok': False, 'reason': 'buyer_is_approver'}
+
+    if approver != allowed_approver:
+        return {'ok': False, 'reason': 'wrong_approver'}
 
     want = payment_hash(payment)
     if signed_hash != want:
