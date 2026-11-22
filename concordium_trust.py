@@ -228,6 +228,8 @@ def pay_seller(request_id, seller, amount_micro_ccd, buyer, cap_micro_ccd, check
     from concordium_approval import (
         FORMAT as APPROVAL_FORMAT,
         TEST_APPROVER_LABEL,
+        approval_commitment,
+        payment_hash as approval_payment_hash,
         verify_approval,
         verify_test_approval,
     )
@@ -313,6 +315,23 @@ def pay_seller(request_id, seller, amount_micro_ccd, buyer, cap_micro_ccd, check
                 return _sealed(rec)
             rec['approval_layer'] = 'test_approver'
             rec['approval_label'] = TEST_APPROVER_LABEL
+            pres = approval.get('presentation') or {}
+            ph = approval_payment_hash(payment)
+            commitment = approval_commitment(ph, pres['signature'])
+            try:
+                memo = _cbor_text(json.dumps({
+                    'aa': request_id,
+                    'seller': seller,
+                    'seal': ev['seal_sha256'],
+                    'approval': commitment,
+                }, separators=(',', ':')))
+            except ValueError:
+                memo = b'\x00' * (MEMO_MAX + 1)
+            if len(memo) > MEMO_MAX:
+                rec['reasons'].append('Memo is over the Concordium limit.')
+                rec['outcome'] = 'refused'
+                return _sealed(rec)
+            memo_hex = memo.hex()
     use_signed = signed_runner is not None
     transfer = signed_runner if use_signed else runner
     try:
