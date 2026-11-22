@@ -25,14 +25,12 @@ const client = new ConcordiumGRPCNodeClient('grpc.testnet.concordium.com', 20000
 const status = await client.getConsensusStatus();
 if (status.genesisBlock.toString() !== TESTNET_GENESIS) throw new Error(`not testnet: ${status.genesisBlock}`);
 
-const accounts = JSON.parse(readFileSync(join(DIR, 'accounts.json'), 'utf8'));
-
 function messageFromHash(hex) {
   if (!/^[0-9a-f]{64}$/i.test(hex)) throw new Error('payment hash must be 64 hex chars');
   return Buffer.from(hex, 'hex');
 }
 
-async function accountSigner(cred) {
+async function accountSigner(accounts, cred) {
   const approver = accounts.accounts[String(cred)]?.address;
   if (!approver) throw new Error(`credential ${cred} account not found`);
   const wallet = ConcordiumHdWallet.fromHex(readFileSync(join(DIR, 'seed.hex'), 'utf8').trim(), 'Testnet');
@@ -46,7 +44,8 @@ if (cmd === 'sign') {
     console.error('usage: node test_approver.mjs sign <payment hash hex>');
     process.exit(1);
   }
-  const { approver, address, signer } = await accountSigner(CRED_NUMBER);
+  const accounts = JSON.parse(readFileSync(join(DIR, 'accounts.json'), 'utf8'));
+  const { approver, address, signer } = await accountSigner(accounts, CRED_NUMBER);
   const signature = await signMessage(address, messageFromHash(hashHex), signer);
   console.log(JSON.stringify({
     approver,
