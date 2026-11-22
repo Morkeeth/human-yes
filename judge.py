@@ -1,14 +1,14 @@
 """Verify the published Human Yes run and try its payment gates without keys."""
 import json
 import tempfile
-from datetime import datetime, timezone
+from datetime import datetime, timedelta
 from pathlib import Path
 import subprocess
 import sys
 from uuid import uuid4
 
 import concordium_approval as ca
-from concordium_trust import SellerCheck, dry_run_transfer, pay_seller, test_approver_signature_ok
+from concordium_trust import SellerCheck, dry_run_transfer, pay_seller
 
 
 ROOT = Path(__file__).resolve().parent
@@ -21,9 +21,27 @@ def require(condition, message):
         raise ValueError(message)
 
 
-def approval_judge_cases(receipt, chain_clock, real_now, signature_verifier=None):
+def chain_signature_check(approver, payment_hash_hex, signature):
+    """Reads the approver's public keys from testnet. A node failure stops the walkthrough."""
+    out = subprocess.run(
+        ['node', str(ROOT / 'concordium' / 'test_approver.mjs'), 'verify', approver, payment_hash_hex,
+         json.dumps(signature)],
+        capture_output=True, text=True, timeout=60, check=True,
+    )
+    return {'ok': json.loads(out.stdout).get('ok') is True}
+
+
+def altered_signature(signature):
+    """The real signature with one hex digit changed, so only the signature check can refuse it."""
+    credential, keys = next(iter(signature.items()))
+    index, value = next(iter(keys.items()))
+    flipped = ('0' if value[0] != '0' else '1') + value[1:]
+    return {credential: {index: flipped}}
+
+
+def approval_judge_cases(receipt, chain_clock, signature_verifier=None):
     """Exercise verify_test_approval for one saved approval receipt. Returns (label, reason) pairs."""
-    signature_verifier = signature_verifier or test_approver_signature_ok
+    signature_verifier = signature_verifier or chain_signature_check
     payment = dict(receipt['payment'])
     base_approval = {
         'approver': receipt['test_approver'],
@@ -33,8 +51,8 @@ def approval_judge_cases(receipt, chain_clock, real_now, signature_verifier=None
     allowed = receipt['test_approver']
     lines = []
 
-    def run_case(label, pay, approval, clock, store):
-        out = ca.verify_test_approval(pay, approval, store, signature_verifier, clock, allowed)
+    def run_case(label, pay, approval, clock, store, permitted=allowed):
+        out = ca.verify_test_approval(pay, approval, store, signature_verifier, clock, permitted)
         lines.append((label, out.get('reason')))
         return out
 
@@ -61,7 +79,7 @@ def approval_judge_cases(receipt, chain_clock, real_now, signature_verifier=None
         store.close()
 
     altered = dict(base_approval)
-    altered['signature'] = {'0': {'0': '00' * 32}}
+    altered['signature'] = altered_signature(receipt['signature'])
     with tempfile.TemporaryDirectory() as tmp:
         store = ca.ApprovalStore(str(Path(tmp) / 'sig.db'))
         out = run_case('altered signature', payment, altered, chain_clock, store)
@@ -71,13 +89,14 @@ def approval_judge_cases(receipt, chain_clock, real_now, signature_verifier=None
     self_approve = dict(base_approval, approver=payment['buyer'])
     with tempfile.TemporaryDirectory() as tmp:
         store = ca.ApprovalStore(str(Path(tmp) / 'buyer.db'))
-        out = run_case('buyer approving itself', payment, self_approve, chain_clock, store)
+        out = run_case('buyer approving itself', payment, self_approve, chain_clock, store, payment['buyer'])
         require(out['reason'] == 'buyer_is_approver', f'buyer approving itself expected buyer_is_approver, got {out}')
         store.close()
 
     with tempfile.TemporaryDirectory() as tmp:
         store = ca.ApprovalStore(str(Path(tmp) / 'expired.db'))
-        out = run_case('expired', payment, base_approval, real_now, store)
+        after_expiry = datetime.fromisoformat(payment['expires_at'].replace('Z', '+00:00')) + timedelta(seconds=1)
+        out = run_case('expired', payment, base_approval, after_expiry, store)
         require(out['reason'] == 'expired', f'expired expected expired, got {out}')
         store.close()
 
@@ -143,10 +162,13 @@ def main():
         chain_clock = verified['block_time']
         if isinstance(chain_clock, str):
             chain_clock = datetime.fromisoformat(chain_clock.replace('Z', '+00:00'))
-        for label, reason in approval_judge_cases(
-                json.loads(APPROVAL_RECEIPT.read_text()),
-                chain_clock,
-                datetime.now(timezone.utc)):
+        approval_receipt = json.loads(APPROVAL_RECEIPT.read_text())
+        bound = approval_receipt['payment']
+        require(bound['seller'] == active and bound['buyer'] == buyer
+                and bound['payee'] == evidence['agent']['agent_wallet']
+                and approval_receipt['test_approver'] == receipt['test_approver'],
+                'The approval receipt names different parties than the published run.')
+        for label, reason in approval_judge_cases(approval_receipt, chain_clock):
             print(f'{label}: {reason}')
         closing = 'All checks passed. The approver is a script-held test key.'
 

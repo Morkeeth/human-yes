@@ -128,12 +128,11 @@ def signature_ok_for(receipt):
 class JudgeMatrixTests(unittest.TestCase):
     def setUp(self):
         self.clock = datetime(2098, 1, 1, tzinfo=timezone.utc)
-        self.real_now = datetime(2100, 1, 1, tzinfo=timezone.utc)
 
     def test_judge_matrix_reasons(self):
         receipt = sample_receipt()
         lines = approval_judge_cases(
-            receipt, self.clock, self.real_now, signature_verifier=signature_ok_for(receipt))
+            receipt, self.clock, signature_verifier=signature_ok_for(receipt))
         got = dict(lines)
         self.assertEqual(got['exact payment accepted'], 'ok')
         self.assertEqual(got['same approval again'], 'replay')
@@ -156,7 +155,7 @@ class JudgeMatrixTests(unittest.TestCase):
         with mock.patch('judge.ca.verify_test_approval', side_effect=poison_replay):
             with self.assertRaises(ValueError):
                 approval_judge_cases(
-                    receipt, self.clock, self.real_now, signature_verifier=signature_ok_for(receipt))
+                    receipt, self.clock, signature_verifier=signature_ok_for(receipt))
 
 
 class VerifyHelperTests(unittest.TestCase):

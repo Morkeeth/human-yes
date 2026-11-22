@@ -404,11 +404,11 @@ def verify_test_approval(payment, approval, store, signature_verifier, now, allo
     if not approver or not signed_hash:
         return {'ok': False, 'reason': 'missing_signature'}
 
-    if approver == payment.get('buyer'):
-        return {'ok': False, 'reason': 'buyer_is_approver'}
-
     if approver != allowed_approver:
         return {'ok': False, 'reason': 'wrong_approver'}
+
+    if approver == payment.get('buyer'):
+        return {'ok': False, 'reason': 'buyer_is_approver'}
 
     want = payment_hash(payment)
     if signed_hash != want:

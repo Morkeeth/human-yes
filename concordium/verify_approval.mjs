@@ -3,7 +3,7 @@ import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { AccountAddress, BlockHash, TransactionHash, verifyMessageSignature } from '@concordium/web-sdk';
 import { ConcordiumGRPCNodeClient, credentials } from '@concordium/web-sdk/nodejs';
-import { readTransfer } from './send_guard.mjs';
+import { readTransfer, requestKey } from './send_guard.mjs';
 
 const TESTNET_GENESIS = '4221332d34e1694168c2a0c0b3fd0f273809612cb13d000d5c2e00e85f50f796';
 const HASH_FIELDS = [
@@ -23,10 +23,16 @@ function requireMatch(condition, message) {
   if (!condition) throw new Error(message);
 }
 
-function canon(obj) {
-  const sorted = {};
-  for (const key of Object.keys(obj).sort()) sorted[key] = obj[key];
-  return JSON.stringify(sorted, (',', ':'));
+// Same bytes as Python's json.dumps(sort_keys=True, separators=(',', ':')) for ASCII values.
+function canon(value) {
+  if (value === null || typeof value !== 'object') {
+    const text = JSON.stringify(value);
+    if (text === undefined || !/^[\x20-\x7e]*$/.test(text)) throw new Error('Receipt holds a value that cannot be hashed.');
+    return text;
+  }
+  if (Array.isArray(value)) return `[${value.map(canon).join(',')}]`;
+  const keys = Object.keys(value).sort();
+  return `{${keys.map(key => `${canon(key)}:${canon(value[key])}`).join(',')}}`;
 }
 
 function sha256Hex(obj) {
@@ -48,11 +54,6 @@ function messageFromHash(hex) {
   return Buffer.from(hex, 'hex');
 }
 
-function parseTime(value) {
-  const text = String(value).replace('Z', '+00:00');
-  return new Date(text).getTime();
-}
-
 async function verify() {
   const { genesisBlock } = await client.getConsensusStatus();
   requireMatch(genesisBlock.toString() === TESTNET_GENESIS, 'Node is on the wrong network.');
@@ -60,6 +61,9 @@ async function verify() {
   requireMatch(receipt.network === 'testnet', 'Receipt must name testnet.');
 
   const payment = receipt.payment;
+  requireMatch(payment.network === 'testnet' && payment.token === 'CCD', 'Payment must be native CCD on testnet.');
+  requireMatch(payment.buyer === receipt.buyer && payment.seller === receipt.seller, 'Receipt and payment name different parties.');
+  requireMatch(BigInt(payment.amount_micro_ccd) > BigInt(receipt.budget_micro_ccd), 'Payment is not above the budget.');
   const wantHash = sha256Hex(paymentBody(payment));
   requireMatch(wantHash === receipt.payment_hash, 'Payment hash does not match the binding fields.');
 
@@ -83,17 +87,19 @@ async function verify() {
     'Sender, receiver or amount differs from the payment.',
   );
 
+  requestKey(transfer.memo_hex); // Check the CBOR framing before reading the memo.
   const memo = JSON.parse(Buffer.from(transfer.memo_hex, 'hex').subarray(2).toString('utf8'));
   requireMatch(memo.aa === payment.request_id, 'Memo request id differs from the payment.');
   requireMatch(memo.seller === payment.seller, 'Memo seller differs from the payment.');
   requireMatch(memo.approval === commitment, 'Memo approval commitment does not match.');
 
   const block = await client.getBlockInfo(BlockHash.fromHexString(status.outcome.blockHash.toString()));
-  const blockTime = block.blockArriveTime;
-  requireMatch(parseTime(blockTime) <= parseTime(payment.expires_at), 'Transfer finalized after the approval expired.');
+  const blockTime = block.blockSlotTime; // Consensus time, the same on every node.
+  const expires = new Date(payment.expires_at).getTime();
+  requireMatch(Number.isFinite(expires) && blockTime.getTime() <= expires, 'Transfer landed after the approval expired.');
 
   return {
-    block_time: blockTime,
+    block_time: blockTime.toISOString(),
     explorer: receipt.explorer,
   };
 }

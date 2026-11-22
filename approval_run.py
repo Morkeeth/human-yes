@@ -38,7 +38,8 @@ def main():
     buyer, approver = accounts['0']['address'], accounts['1']['address']
     run = f'approval-{int(time.time())}'
     check = ct.SellerCheck()
-    payee = check.check(PAID_SELLER).agent.get('agent_wallet') or check.check(PAID_SELLER).agent.get('owner_account')
+    seller_agent = check.check(PAID_SELLER).agent
+    payee = seller_agent.get('agent_wallet') or seller_agent.get('owner_account')
 
     request = f'{run}-over'
     stopped = ct.pay_seller(request, PAID_SELLER, OVER, buyer, cap_micro_ccd=BUDGET, check=check)
